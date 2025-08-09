@@ -79,7 +79,7 @@ class TreatmentController {
 
     public function getPreviousSessionExercises($patient_id) {
         $stmt = $this->pdo->prepare("
-            SELECT te.* , em.name 
+            SELECT te.* , em.name , ts.session_date 
             FROM treatment_exercises te
             JOIN treatment_sessions ts ON ts.id = te.session_id
             JOIN exercises_master em ON te.exercise_id = em.id

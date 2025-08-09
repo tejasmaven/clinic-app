@@ -84,6 +84,7 @@ include '../../includes/header.php';
         <tbody>
           <?php foreach ($previousExercises as $ex): ?>
           <tr>
+            <td><?= $ex['session_date'] ?></td>
             <td><?= $ex['name'] ?></td>
             <td><?= $ex['reps'] ?></td>
             <td><?= $ex['duration_minutes'] ?></td>
