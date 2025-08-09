@@ -67,40 +67,57 @@ include '../../includes/header.php';
       <input type="date" name="session_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
     </div>
 
+    <?php
+      $groupedExercises = [];
+      foreach ($previousExercises as $ex) {
+          $dateKey = date('Y-m-d', strtotime($ex['session_date']));
+          $groupedExercises[$dateKey][] = $ex;
+      }
+      if (!empty($groupedExercises)):
+    ?>
+    <div class="mb-3">
+      <label class="form-label">Previous Exercises</label>
+      <div class="accordion" id="previousExercisesAccordion">
+        <?php $idx = 0; foreach ($groupedExercises as $date => $exerciseList): $idx++; ?>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="heading<?= $idx ?>">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<?= $idx ?>" aria-expanded="false" aria-controls="collapse<?= $idx ?>">
+              <?= htmlspecialchars($date) ?>
+            </button>
+          </h2>
+          <div id="collapse<?= $idx ?>" class="accordion-collapse collapse" aria-labelledby="heading<?= $idx ?>" data-bs-parent="#previousExercisesAccordion">
+            <div class="accordion-body p-0">
+              <table class="table table-bordered table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>Exercise</th>
+                    <th>Reps</th>
+                    <th>Duration</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($exerciseList as $ex): ?>
+                  <tr>
+                    <td><?= htmlspecialchars($ex['name']) ?></td>
+                    <td><?= htmlspecialchars($ex['reps']) ?></td>
+                    <td><?= htmlspecialchars($ex['duration_minutes']) ?></td>
+                    <td><?= htmlspecialchars($ex['notes']) ?></td>
+                  </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php endif; ?>
+
     <div class="mb-3">
       <label class="form-label">Exercises</label>
-      <div id="exerciseContainer">
-
-        <table class="table table-bordered table-hover">
-        <thead>
-          <tr>
-            <th>Exercise</th>
-            <th>Reps</th>
-            <th>Duration</th>
-            <th>Notes</th>
-            
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($previousExercises as $ex): ?>
-          <tr>
-            <td><?= $ex['session_date'] ?></td>
-            <td><?= $ex['name'] ?></td>
-            <td><?= $ex['reps'] ?></td>
-            <td><?= $ex['duration_minutes'] ?></td>
-            <td><?= $ex['notes'] ?></td>
-           
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-
-
-
-
-
-        
-      </div>
+      <div id="exerciseContainer"></div>
       <button type="button" class="btn btn-secondary mt-2" onclick="addExercise()">+ Add Exercise</button>
     </div>
 
