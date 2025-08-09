@@ -1,0 +1,20 @@
+RewriteEngine On
+RewriteBase /clinic-app/
+
+# Match with or without trailing slash
+RewriteRule ^admin/?$ views/auth/admin_login.php [L]
+RewriteRule ^login-doctor/?$ views/auth/login_doctor.php [L]
+RewriteRule ^login-patient/?$ views/auth/login_patient.php [L]
+
+DirectoryIndex index.php
+
+RewriteRule ^admin/dashboard/?$ views/dashboard/admin_dashboard.php [L]
+RewriteRule ^admin/manage_exercises/?$ views/admin/manage_exercises.php [L]
+RewriteRule ^admin/manage_users/?$ views/admin/manage_users.php [L]
+RewriteRule ^admin/manage_referrals/?$ views/admin/manage_referrals.php [L]
+RewriteRule ^admin/manage_patients/?$ views/admin/manage_patients.php [L]
+RewriteRule ^admin/patient_form/?$ views/admin/patient_form.php [L]
+
+RewriteRule ^doctor/login/?$ views/login.php [L]
+RewriteRule ^dashboard/doctor_dashboard/?$ views/dashboard/doctor_dashboard.php [L]
+RewriteRule ^dashboard/receptionist_dashboard/?$ views/dashboard/receptionist_dashboard.php [L]
