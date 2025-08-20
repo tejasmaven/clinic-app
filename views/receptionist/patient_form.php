@@ -23,11 +23,14 @@ if (isset($_GET['id'])) {
 ?>
 
 <?php include '../../includes/header.php'; ?>
-<div class="container mt-4">
-  <h4>Receptionist - <?= isset($patient) ? 'Edit' : 'Add' ?> Patient</h4>
-  <?php if (!empty($error)): ?>
-    <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
-  <?php endif; ?>
-  <?php include '../../views/shared/patient_form_content.php'; ?>
+<div class="row">
+  <div class="col-md-3"><?php include '../../layouts/receptionist_sidebar.php'; ?></div>
+  <div class="col-md-9">
+    <h4>Receptionist - <?= isset($patient) ? 'Edit' : 'Add' ?> Patient</h4>
+    <?php if (!empty($error)): ?>
+      <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
+    <?php include '../../views/shared/patient_form_content.php'; ?>
+  </div>
 </div>
 <?php include '../../includes/footer.php'; ?>
