@@ -1,9 +1,17 @@
 <?php
 // config/config.php
-define('BASE_PATH', dirname(__DIR__)); // Points to /clinic-app
+
+if($_SERVER['HTTP_HOST'] == 'localhost:8081')
+{
+    define('BASE_PATH', '/clinic-app'); // Points to /clinic-app
+}
+else
+{
+    define('BASE_PATH', '/'); // Points to /clinic-app
+}
 
 // Determine the base URL path for links regardless of deployment folder
-$docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+$docRoot = $_SERVER['HTTP_HOST'] ?? '';
 $baseUri = $docRoot ? str_replace($docRoot, '', BASE_PATH) : '';
 define('BASE_URL', rtrim($baseUri, '/'));
 
