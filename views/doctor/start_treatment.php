@@ -139,30 +139,56 @@ include '../../includes/header.php';
 <script>
   const exerciseMaster = <?= json_encode($exercise_master) ?>;
 
+  document.addEventListener('DOMContentLoaded', () => {
+    addExercise();
+  });
+
   function addExercise() {
     const container = document.getElementById('exerciseContainer');
     const row = document.createElement('div');
-    row.className = 'exercise-row';
-
-    const select = document.createElement('select');
-    select.name = "exercises_exercise_id[]";
-    select.className = "form-select";
-    select.innerHTML = '<option value="">-- Select Exercise --</option>' +
-      exerciseMaster.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+    row.className = 'row g-2 align-items-end mb-2 exercise-row';
 
     row.innerHTML = `
-      <input type="number" name="exercises_reps[]" class="form-control" placeholder="Reps">
-      <input type="number" name="exercises_duration_minutes[]" class="form-control" placeholder="Duration (min)">
-      <input type="text" name="exercises_notes[]" class="form-control" placeholder="Notes">
-      <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
+      <div class="col-md-4">
+        <select name="exercises_exercise_id[]" class="form-select exercise-select"></select>
+      </div>
+      <div class="col-md-2">
+        <input type="number" name="exercises_reps[]" class="form-control" placeholder="Reps">
+      </div>
+      <div class="col-md-2">
+        <input type="number" name="exercises_duration_minutes[]" class="form-control" placeholder="Duration (min)">
+      </div>
+      <div class="col-md-3">
+        <input type="text" name="exercises_notes[]" class="form-control" placeholder="Notes">
+      </div>
+      <div class="col-md-1 text-center">
+        <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeRow(this)">X</button>
+      </div>
     `;
 
-    row.prepend(select);
     container.appendChild(row);
+
+    row.querySelector('.exercise-select').addEventListener('change', updateExerciseOptions);
+    updateExerciseOptions();
+  }
+
+  function updateExerciseOptions() {
+    const selects = document.querySelectorAll('.exercise-select');
+    const selectedValues = Array.from(selects).map(s => s.value).filter(v => v);
+    selects.forEach(sel => {
+      const currentValue = sel.value;
+      sel.innerHTML = '<option value="">-- Select Exercise --</option>' +
+        exerciseMaster.map(ex => {
+          const disabled = selectedValues.includes(String(ex.id)) && String(ex.id) !== currentValue;
+          return `<option value="${ex.id}" ${disabled ? 'disabled' : ''}>${ex.name}</option>`;
+        }).join('');
+      sel.value = currentValue;
+    });
   }
 
   function removeRow(btn) {
     btn.closest('.exercise-row').remove();
+    updateExerciseOptions();
   }
 </script>
 <?php include '../../includes/footer.php'; ?>
