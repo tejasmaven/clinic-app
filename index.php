@@ -1,18 +1,15 @@
 <?php
 // index.php – Landing Page
+include 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Clinic Login</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
+
+<div class="text-center mt-5">
+    <img src="assets/img/logo-placeholder.svg" alt="Clinic Logo" class="mb-4 img-fluid" style="max-width: 200px;">
     <h1>Welcome to the Physiotherapy Clinic System</h1>
-    <div style="margin-top: 30px;">
-        <a href="views/login.php"><button>Patient Login</button></a>
-        <a href="views/login.php"><button>Doctor Login</button></a>
+    <div class="mt-4">
+        <a href="views/login.php" class="btn btn-primary btn-lg mx-2">Patient Login</a>
+        <a href="views/login.php" class="btn btn-secondary btn-lg mx-2">Doctor Login</a>
     </div>
-</body>
-</html>
+</div>
+
+<?php include 'includes/footer.php'; ?>
