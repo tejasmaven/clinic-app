@@ -79,13 +79,20 @@ class TreatmentController {
 
     public function getPreviousSessionExercises($patient_id) {
         $stmt = $this->pdo->prepare("
-            SELECT te.* , em.name , ts.session_date 
-            FROM treatment_exercises te
-            JOIN treatment_sessions ts ON ts.id = te.session_id
-            JOIN exercises_master em ON te.exercise_id = em.id
+            SELECT ts.id AS session_id,
+                   ts.session_date,
+                   ts.remarks,
+                   ts.progress_notes,
+                   te.exercise_id,
+                   te.reps,
+                   te.duration_minutes,
+                   te.notes,
+                   em.name
+            FROM treatment_sessions ts
+            LEFT JOIN treatment_exercises te ON ts.id = te.session_id
+            LEFT JOIN exercises_master em ON te.exercise_id = em.id
             WHERE ts.patient_id = ?
-            ORDER BY ts.session_date DESC, ts.id DESC
-            LIMIT 10
+            ORDER BY ts.session_date DESC, ts.id DESC, te.id
         ");
         $stmt->execute([$patient_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
