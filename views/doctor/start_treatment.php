@@ -68,25 +68,40 @@ include '../../includes/header.php';
     </div>
 
     <?php
-      $groupedExercises = [];
+      $groupedSessions = [];
       foreach ($previousExercises as $ex) {
-          $dateKey = date('Y-m-d', strtotime($ex['session_date']));
-          $groupedExercises[$dateKey][] = $ex;
+          $sid = $ex['session_id'];
+          if (!isset($groupedSessions[$sid])) {
+              $groupedSessions[$sid] = [
+                  'session_date' => $ex['session_date'],
+                  'remarks' => $ex['remarks'],
+                  'progress_notes' => $ex['progress_notes'],
+                  'exercises' => []
+              ];
+          }
+          if (!empty($ex['exercise_id'])) {
+              $groupedSessions[$sid]['exercises'][] = $ex;
+          }
       }
-      if (!empty($groupedExercises)):
+      if (!empty($groupedSessions)):
     ?>
     <div class="mb-3">
-      <label class="form-label">Previous Exercises</label>
+      <label class="form-label">Previous Sessions</label>
       <div class="accordion" id="previousExercisesAccordion">
-        <?php $idx = 0; foreach ($groupedExercises as $date => $exerciseList): $idx++; ?>
+        <?php $idx = 0; foreach ($groupedSessions as $session): $idx++; ?>
         <div class="accordion-item">
           <h2 class="accordion-header" id="heading<?= $idx ?>">
             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<?= $idx ?>" aria-expanded="false" aria-controls="collapse<?= $idx ?>">
-              <?= htmlspecialchars($date) ?>
+              <?= htmlspecialchars($session['session_date']) ?>
             </button>
           </h2>
           <div id="collapse<?= $idx ?>" class="accordion-collapse collapse" aria-labelledby="heading<?= $idx ?>" data-bs-parent="#previousExercisesAccordion">
             <div class="accordion-body p-0">
+              <div class="p-3">
+                <strong>Doctor's Remarks:</strong> <?= htmlspecialchars($session['remarks']) ?><br>
+                <strong>Progress Notes:</strong> <?= htmlspecialchars($session['progress_notes']) ?>
+              </div>
+              <?php if (!empty($session['exercises'])): ?>
               <table class="table table-bordered table-hover mb-0">
                 <thead>
                   <tr>
@@ -97,7 +112,7 @@ include '../../includes/header.php';
                   </tr>
                 </thead>
                 <tbody>
-                  <?php foreach ($exerciseList as $ex): ?>
+                  <?php foreach ($session['exercises'] as $ex): ?>
                   <tr>
                     <td><?= htmlspecialchars($ex['name']) ?></td>
                     <td><?= htmlspecialchars($ex['reps']) ?></td>
@@ -107,6 +122,7 @@ include '../../includes/header.php';
                   <?php endforeach; ?>
                 </tbody>
               </table>
+              <?php endif; ?>
             </div>
           </div>
         </div>
@@ -167,9 +183,8 @@ include '../../includes/header.php';
     `;
 
     container.appendChild(row);
-
-    row.querySelector('.exercise-select').addEventListener('change', updateExerciseOptions);
     updateExerciseOptions();
+    row.querySelector('.exercise-select').addEventListener('change', updateExerciseOptions);
   }
 
   function updateExerciseOptions() {
@@ -177,12 +192,16 @@ include '../../includes/header.php';
     const selectedValues = Array.from(selects).map(s => s.value).filter(v => v);
     selects.forEach(sel => {
       const currentValue = sel.value;
+      if ($(sel).data('select2')) {
+        $(sel).select2('destroy');
+      }
       sel.innerHTML = '<option value="">-- Select Exercise --</option>' +
         exerciseMaster.map(ex => {
           const disabled = selectedValues.includes(String(ex.id)) && String(ex.id) !== currentValue;
           return `<option value="${ex.id}" ${disabled ? 'disabled' : ''}>${ex.name}</option>`;
         }).join('');
       sel.value = currentValue;
+      $(sel).select2({width: '100%'});
     });
   }
 
