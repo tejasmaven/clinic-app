@@ -2,6 +2,11 @@
 // config/config.php
 define('BASE_PATH', dirname(__DIR__)); // Points to /clinic-app
 
+// Determine the base URL path for links regardless of deployment folder
+$docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+$baseUri = $docRoot ? str_replace($docRoot, '', BASE_PATH) : '';
+define('BASE_URL', rtrim($baseUri, '/'));
+
 $host = 'localhost';
 $db   = 'physio_clinic';
 $user = 'root';
