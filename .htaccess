@@ -8,7 +8,7 @@ RewriteRule ^login-patient/?$ views/auth/login_patient.php [L]
 
 DirectoryIndex index.php
 
-RewriteRule ^admin/dashboard/?$ views/dashboard/admin_dashboard.php [L]
+RewriteRule ^admin/dashboard/?$ views/admin/index.php [L]
 RewriteRule ^admin/manage_exercises/?$ views/admin/manage_exercises.php [L]
 RewriteRule ^admin/manage_users/?$ views/admin/manage_users.php [L]
 RewriteRule ^admin/manage_referrals/?$ views/admin/manage_referrals.php [L]
