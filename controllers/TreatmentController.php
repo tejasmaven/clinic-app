@@ -13,12 +13,13 @@ class TreatmentController {
 
             // Insert treatment session
             $stmt = $this->pdo->prepare("
-                INSERT INTO treatment_sessions 
-                (patient_id, session_date, doctor_id, remarks, progress_notes) 
-                VALUES (:patient_id, :session_date, :doctor_id, :remarks, :progress_notes)
+                INSERT INTO treatment_sessions
+                (patient_id, episode_id, session_date, doctor_id, remarks, progress_notes)
+                VALUES (:patient_id, :episode_id, :session_date, :doctor_id, :remarks, :progress_notes)
             ");
             $stmt->execute([
                 'patient_id' => $data['patient_id'],
+                'episode_id' => $data['episode_id'],
                 'session_date' => $data['session_date'],
                 'doctor_id' => $data['doctor_id'],
                 'remarks' => $data['remarks'] ?? null,
@@ -77,7 +78,7 @@ class TreatmentController {
         }
     }
 
-    public function getPreviousSessionExercises($patient_id) {
+    public function getPreviousSessionExercises($patient_id, $episode_id) {
         $stmt = $this->pdo->prepare("
             SELECT ts.id AS session_id,
                    ts.session_date,
@@ -91,10 +92,10 @@ class TreatmentController {
             FROM treatment_sessions ts
             LEFT JOIN treatment_exercises te ON ts.id = te.session_id
             LEFT JOIN exercises_master em ON te.exercise_id = em.id
-            WHERE ts.patient_id = ?
+            WHERE ts.patient_id = ? AND ts.episode_id = ?
             ORDER BY ts.session_date DESC, ts.id DESC, te.id
         ");
-        $stmt->execute([$patient_id]);
+        $stmt->execute([$patient_id, $episode_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

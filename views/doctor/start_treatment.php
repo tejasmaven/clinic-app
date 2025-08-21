@@ -15,7 +15,9 @@ $patientData = $patientController->getPatientById($patient_id);
 $patient_name = $patientData['first_name']." ".$patientData['last_name'] ;
 
 $exercise_master = $pdo->query("SELECT id, name  FROM exercises_master WHERE is_active = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-$previousExercises = $patient_id ? $treatmentController->getPreviousSessionExercises($patient_id) : [];
+$previousExercises = ($patient_id && $episode_id)
+    ? $treatmentController->getPreviousSessionExercises($patient_id, $episode_id)
+    : [];
 
 $msg = null;
 
@@ -30,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     $data = [
         'patient_id' => $_POST['patient_id'],
+        'episode_id' => $_POST['episode_id'],
         'session_date' => $_POST['session_date'],
         'doctor_id' => $_SESSION['user_id'],
         'remarks' => $_POST['remarks'] ?? '',
