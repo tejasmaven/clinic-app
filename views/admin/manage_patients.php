@@ -57,6 +57,7 @@ include '../../includes/header.php';
           <td><?= htmlspecialchars($p['referral_source']) ?></td>
           <td>
             <a href="patient_form.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-info">Edit</a>
+            <a href="../shared/manage_patients_files.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-warning">View Files</a>
           </td>
         </tr>
         <?php endforeach; ?>

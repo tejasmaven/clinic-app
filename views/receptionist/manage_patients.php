@@ -33,6 +33,7 @@ $patients = $stmt->fetchAll();
             <td><?= htmlspecialchars($p['contact_number']) ?></td>
             <td>
               <a href="patient_form.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-primary">Edit</a>
+              <a href="../shared/manage_patients_files.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-warning">View Files</a>
             </td>
           </tr>
         <?php endforeach; ?>
