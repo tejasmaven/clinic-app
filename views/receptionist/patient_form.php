@@ -1,36 +1,50 @@
 <?php
-require_once '../../includes/auth.php';
-requireRole('Receptionist');
 require_once '../../includes/db.php';
-require_once '../../controllers/PatientController.php';
+require_once '../../includes/auth.php';
+requireLogin();
+requireRole('Receptionist');
 
+require_once '../../controllers/PatientController.php';
 $controller = new PatientController($pdo);
-$patient = null;
+
+$id = $_GET['id'] ?? null;
+$editing = false;
+$patient = [];
+$msg = '';
+
+if ($id) {
+    $patient = $controller->getPatientById($id);
+    $editing = true;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $result = $controller->savePatient($_POST);
-    if ($result === true) {
-        header("Location: manage_patients.php?success=1");
+    $data = $_POST;
+    $data['id'] = $id ?? null;
+    $msg = $controller->saveOrUpdatePatient($data);
+
+    if (strpos($msg, 'successfully') !== false) {
+        header("Location: manage_patients.php?msg=" . urlencode($msg));
         exit;
-    } else {
-        $error = $result;
     }
 }
 
-if (isset($_GET['id'])) {
-    $patient = $controller->getPatientById($_GET['id']);
-}
+$referrals = $controller->getReferralSources();
+include '../../includes/header.php';
 ?>
-
-<?php include '../../includes/header.php'; ?>
 <div class="row">
   <div class="col-md-3"><?php include '../../layouts/receptionist_sidebar.php'; ?></div>
   <div class="col-md-9">
-    <h4>Receptionist - <?= isset($patient) ? 'Edit' : 'Add' ?> Patient</h4>
-    <?php if (!empty($error)): ?>
-      <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+    <h4><?= $editing ? 'Edit' : 'Add' ?> Patient</h4>
+
+    <?php if (!empty($msg)): ?>
+      <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
     <?php endif; ?>
-    <?php include '../../views/shared/patient_form_content.php'; ?>
+
+    <form method="POST" id="patientForm" enctype="multipart/form-data">
+      <?php include '../../views/shared/patient_form_content.php'; ?>
+    </form>
   </div>
 </div>
+
 <?php include '../../includes/footer.php'; ?>
+

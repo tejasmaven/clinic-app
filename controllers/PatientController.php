@@ -33,7 +33,9 @@ class PatientController {
     $sqlFields = [
         'first_name', 'last_name', 'date_of_birth', 'gender', 'contact_number',
         'email', 'address', 'emergency_contact_name', 'emergency_contact_number',
-        'referral_source', 'medical_history', 'allergies'
+        'referral_source', 'medical_history', 'allergies',
+        'allergy_medicines_in_use', 'family_history', 'history', 'chief_complaints',
+        'assessment', 'investigation', 'diagnosis', 'goal'
     ];
 
     $placeholders = implode(", ", array_map(function($f) {
@@ -59,6 +61,25 @@ class PatientController {
 
     try {
         $stmt->execute();
+        $patientId = !empty($data['id']) ? $data['id'] : $this->pdo->lastInsertId();
+
+        if (!empty($_FILES['reports']['name'][0])) {
+            $uploadDir = dirname(__DIR__) . '/uploads/patient_docs/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+            $count = min(count($_FILES['reports']['name']), 5);
+            for ($i = 0; $i < $count; $i++) {
+                if ($_FILES['reports']['error'][$i] === UPLOAD_ERR_OK) {
+                    $original = $_FILES['reports']['name'][$i];
+                    $safeName = time() . '_' . preg_replace('/[^A-Za-z0-9.\-_]/', '_', $original);
+                    move_uploaded_file($_FILES['reports']['tmp_name'][$i], $uploadDir . $safeName);
+                    $stmtFile = $this->pdo->prepare("INSERT INTO file_master (patient_id, file_name, upload_date) VALUES (:pid, :fname, NOW())");
+                    $stmtFile->execute([':pid' => $patientId, ':fname' => $safeName]);
+                }
+            }
+        }
+
         return !empty($data['id']) ? "Patient updated successfully." : "Patient added successfully.";
     } catch (PDOException $e) {
         return "Error: " . $e->getMessage();
