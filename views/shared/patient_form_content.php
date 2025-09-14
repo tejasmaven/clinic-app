@@ -1,10 +1,10 @@
 <!-- Tabs -->
 <ul class="nav nav-tabs mb-3" id="stepTabs" role="tablist">
-  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#step1">Step 1</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step2">Step 2</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step3">Step 3</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step4">Step 4</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step5">Step 5</a></li>
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#step1">Step 1: Patient Information</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step2">Step 2: Emergency Information</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step3">Step 3: Referral</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step4">Step 4: Patient History</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step5">Step 5: Files</a></li>
 </ul>
 
 <div class="tab-content border p-3 bg-light">
@@ -31,7 +31,7 @@
         </div>
 
       <div class="col-md-4"><label>Contact Number *</label>
-        <input type="tel" name="contact_number" pattern="[0-9]{10}" maxlength="10" class="form-control" required value="<?= htmlspecialchars($patient['contact_number'] ?? '') ?>">
+        <input type="tel" name="contact_number" pattern="[0-9]{10}" minlength="10" maxlength="10" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0,10)" class="form-control" required value="<?= htmlspecialchars($patient['contact_number'] ?? '') ?>">
         </div>
       <div class="col-md-6"><label>Email</label>
         <input type="email" name="email" class="form-control" value="<?= htmlspecialchars($patient['email'] ?? '') ?>">
@@ -50,14 +50,8 @@
         </div>
 
         <div class="col-md-6"><label>Emergency Contact Number *</label>
-        <input type="tel" name="emergency_contact_number" pattern="[0-9]{10}" maxlength="10" class="form-control" value="<?= htmlspecialchars($patient['emergency_contact_number'] ?? '') ?>" required>
+        <input type="tel" name="emergency_contact_number" pattern="[0-9]{10}" minlength="10" maxlength="10" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0,10)" class="form-control" value="<?= htmlspecialchars($patient['emergency_contact_number'] ?? '') ?>" required>
         </div>
-      <div class="col-md-6"><label>Medical History</label>
-        <textarea name="medical_history" class="form-control"><?= htmlspecialchars($patient['medical_history'] ?? '') ?></textarea>
-      </div>
-      <div class="col-md-6"><label>Allergies</label>
-        <textarea name="allergies" class="form-control"><?= htmlspecialchars($patient['allergies'] ?? '') ?></textarea>
-      </div>
     </div>
   </div>
 
@@ -109,8 +103,30 @@
   <div class="tab-pane fade" id="step5">
     <div class="row g-3">
       <div class="col-md-12"><label>Reports Upload (max 5 files)</label>
-        <input type="file" name="reports[]" class="form-control" multiple>
+        <input type="file" id="reports" name="reports[]" class="form-control" multiple>
       </div>
+      <?php if (!empty($files)): ?>
+      <div class="col-md-12">
+        <table class="table table-bordered mt-3">
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Uploaded On</th>
+              <th>Download</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($files as $file): ?>
+            <tr>
+              <td><?= htmlspecialchars($file['file_name']) ?></td>
+              <td><?= date('d M Y', strtotime($file['upload_date'])) ?></td>
+              <td><a href="/uploads/patient_docs/<?= htmlspecialchars($patient['id']) ?>/<?= htmlspecialchars($file['file_name']) ?>" class="btn btn-sm btn-primary" download>Download</a></td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php endif; ?>
     </div>
   </div>
 </div>
@@ -129,6 +145,7 @@ const navLinks = document.querySelectorAll('#stepTabs .nav-link');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
+const reportsInput = document.getElementById('reports');
 
 function showTab(n) {
   tabs.forEach((t, i) => {
@@ -159,4 +176,13 @@ prevBtn.addEventListener('click', () => {
 });
 
 showTab(currentTab);
+
+if (reportsInput) {
+  reportsInput.addEventListener('change', function() {
+    if (this.files.length > 5) {
+      alert('Maximum 5 files allowed.');
+      this.value = '';
+    }
+  });
+}
 </script>

@@ -11,10 +11,12 @@ $id = $_GET['id'] ?? null;
 $editing = false;
 $patient = [];
 $msg = '';
+$files = [];
 
 if ($id) {
     $patient = $controller->getPatientById($id);
     $editing = true;
+    $files = $controller->getPatientFiles($id);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
