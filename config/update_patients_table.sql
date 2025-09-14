@@ -8,3 +8,5 @@ ALTER TABLE patients
   ADD COLUMN diagnosis TEXT,
   ADD COLUMN goal TEXT;
 
+ALTER TABLE treatment_sessions
+  ADD COLUMN advise TEXT;
