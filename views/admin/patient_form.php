@@ -42,7 +42,7 @@ include '../../includes/header.php';
       <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
     <?php endif; ?>
 
-    <form method="POST" id="patientForm">
+    <form method="POST" id="patientForm" enctype="multipart/form-data">
       <?php include '../../views/shared/patient_form_content.php'; ?>
     </form>
   </div>
