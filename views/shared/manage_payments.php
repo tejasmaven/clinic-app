@@ -22,6 +22,15 @@ if (!$patient) {
     exit('Patient not found.');
 }
 
+// Fetch episodes and treatment sessions for dropdowns
+$episodesStmt = $pdo->prepare("SELECT id, start_date FROM treatment_episodes WHERE patient_id = ? ORDER BY start_date DESC");
+$episodesStmt->execute([$patientId]);
+$episodes = $episodesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$sessionsStmt = $pdo->prepare("SELECT episode_id, session_date FROM treatment_sessions WHERE patient_id = ? ORDER BY session_date DESC");
+$sessionsStmt->execute([$patientId]);
+$sessions = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
+
 // Handle delete
 if (isset($_GET['delete'])) {
     $paymentController->deletePayment((int)$_GET['delete']);
@@ -80,7 +89,7 @@ include '../../includes/header.php';
     <form method="post" class="mb-4">
       <input type="hidden" name="id" value="<?= $editPayment['id'] ?? '' ?>">
       <div class="row g-2">
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">Date</label>
           <input type="date" name="payment_date" class="form-control" value="<?= $editPayment['payment_date'] ?? '' ?>">
         </div>
@@ -88,13 +97,27 @@ include '../../includes/header.php';
           <label class="form-label">Amount</label>
           <input type="number" step="0.01" name="amount" class="form-control" value="<?= $editPayment['amount'] ?? '' ?>">
         </div>
-        <div class="col-md-2">
-          <label class="form-label">Episodes</label>
-          <input type="number" name="episodes_covered" class="form-control" value="<?= $editPayment['episodes_covered'] ?? '' ?>">
+        <div class="col-md-3">
+          <label class="form-label">Episode</label>
+          <select name="episodes_covered" id="episodeSelect" class="form-select">
+            <option value="">Select Episode</option>
+            <?php foreach ($episodes as $ep): ?>
+              <option value="<?= $ep['id'] ?>" <?= (isset($editPayment['episodes_covered']) && $editPayment['episodes_covered'] == $ep['id']) ? 'selected' : '' ?>>
+                Episode <?= $ep['id'] ?> (<?= htmlspecialchars($ep['start_date']) ?>)
+              </option>
+            <?php endforeach; ?>
+          </select>
         </div>
         <div class="col-md-3">
           <label class="form-label">Treatment Covered</label>
-          <input type="text" name="treatment_covered" class="form-control" value="<?= htmlspecialchars($editPayment['treatment_covered'] ?? '') ?>">
+          <select name="treatment_covered" id="sessionSelect" class="form-select">
+            <option value="">Select Session</option>
+            <?php foreach ($sessions as $s): ?>
+              <option value="<?= htmlspecialchars($s['session_date']) ?>" data-episode="<?= $s['episode_id'] ?>" <?= (isset($editPayment['treatment_covered']) && $editPayment['treatment_covered'] == $s['session_date']) ? 'selected' : '' ?>>
+                <?= htmlspecialchars($s['session_date']) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
         </div>
         <div class="col-md-2">
           <label class="form-label">Status</label>
@@ -182,5 +205,21 @@ include '../../includes/header.php';
     </div>
   </div>
 </div>
+
+<script>
+  const episodeSelect = document.getElementById('episodeSelect');
+  const sessionSelect = document.getElementById('sessionSelect');
+
+  function filterSessions() {
+    const ep = episodeSelect.value;
+    Array.from(sessionSelect.options).forEach(opt => {
+      if (!opt.value) return;
+      opt.hidden = ep && opt.dataset.episode !== ep;
+    });
+  }
+
+  episodeSelect?.addEventListener('change', filterSessions);
+  filterSessions();
+</script>
 
 <?php include '../../includes/footer.php'; ?>

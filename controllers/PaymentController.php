@@ -38,6 +38,34 @@ class PaymentController {
         $stmt->execute();
     }
 
+    /**
+     * Record payment information for a treatment session. If a payment entry
+     * already exists for the given patient/episode/session date, update the
+     * amount while retaining its status. Otherwise insert a new payment marked
+     * as pending.
+     */
+    public function recordSessionPayment($patientId, $episodeId, $sessionDate, $amount) {
+        $stmt = $this->pdo->prepare(
+            "SELECT id, status FROM payments WHERE patient_id = ? AND episodes_covered = ? AND treatment_covered = ?"
+        );
+        $stmt->execute([$patientId, $episodeId, $sessionDate]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existing) {
+            $update = $this->pdo->prepare(
+                "UPDATE payments SET payment_date = ?, amount = ?, updated_at = NOW() WHERE id = ?"
+            );
+            $update->execute([$sessionDate, $amount, $existing['id']]);
+            return $existing['status'];
+        } else {
+            $insert = $this->pdo->prepare(
+                "INSERT INTO payments (patient_id, payment_date, amount, episodes_covered, treatment_covered, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'pending', NOW(), NOW())"
+            );
+            $insert->execute([$patientId, $sessionDate, $amount, $episodeId, $sessionDate]);
+            return 'pending';
+        }
+    }
+
     public function deletePayment($id) {
         $stmt = $this->pdo->prepare("DELETE FROM payments WHERE id = ?");
         $stmt->execute([$id]);

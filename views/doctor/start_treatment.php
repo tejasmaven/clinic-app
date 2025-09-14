@@ -6,9 +6,11 @@ requireRole('Doctor');
 
 require_once '../../controllers/TreatmentController.php';
 require_once '../../controllers/PatientController.php';
+require_once '../../controllers/PaymentController.php';
 
 $treatmentController = new TreatmentController($pdo);
 $patientController = new PatientController($pdo);
+$paymentController = new PaymentController($pdo);
 $patient_id = $_GET['patient_id'] ?? null;
 $episode_id = $_GET['episode_id'] ?? null;
 $patientData = $patientController->getPatientById($patient_id);
@@ -22,7 +24,7 @@ $previousExercises = ($patient_id && $episode_id)
 $msg = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  
+
     $exercises_data = [
       'exercise_id' => $_POST['exercises_exercise_id'],
       'reps' => $_POST['exercises_reps'],
@@ -42,10 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'exercises' => $exercises_data,
         'file' => $_FILES['session_file'] ?? null
     ];
+    $amount = $_POST['session_amount'] ?? 0;
     $result = $treatmentController->saveSession($data);
-    header("Location: start_treatment.php?episode_id=" . $episode_id."&patient_id=".$patient_id);
-    exit;
-    $msg = $result === true ? 'Treatment saved successfully.' : 'Error: ' . $result;
+    if ($result === true) {
+        $paymentController->recordSessionPayment($data['patient_id'], $data['episode_id'], $data['session_date'], $amount);
+        header("Location: start_treatment.php?episode_id=" . $episode_id."&patient_id=".$patient_id);
+        exit;
+    } else {
+        $msg = 'Error: ' . $result;
+    }
 }
 include '../../includes/header.php';
 
@@ -163,6 +170,10 @@ include '../../includes/header.php';
     <div class="mb-3">
       <label class="form-label">Upload File</label>
       <input type="file" name="session_file" class="form-control" />
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Session Amount</label>
+      <input type="number" step="0.01" name="session_amount" class="form-control" required>
     </div>
 
     <button type="submit" class="btn btn-primary">Save Treatment</button>
