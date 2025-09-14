@@ -103,7 +103,7 @@ class PatientController {
     }
 
     public function getPatientFiles($patientId) {
-        $stmt = $this->pdo->prepare("SELECT id, file_name, upload_date FROM file_master WHERE patient_id = ? ORDER BY upload_date DESC");
+        $stmt = $this->pdo->prepare("SELECT file_id, file_name, upload_date FROM file_master WHERE patient_id = ? ORDER BY upload_date DESC");
         $stmt->execute([$patientId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
