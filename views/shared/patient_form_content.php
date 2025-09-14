@@ -120,7 +120,9 @@
             <tr>
               <td><?= htmlspecialchars($file['file_name']) ?></td>
               <td><?= date('d M Y', strtotime($file['upload_date'])) ?></td>
-              <td><a href="/uploads/patient_docs/<?= htmlspecialchars($patient['id']) ?>/<?= htmlspecialchars($file['file_name']) ?>" class="btn btn-sm btn-primary" download>Download</a></td>
+              <td>
+                <a href="<?= BASE_URL ?>/views/shared/download_file.php?patient_id=<?= urlencode($patient['id']) ?>&file=<?= urlencode($file['file_name']) ?>" class="btn btn-sm btn-primary">Download</a>
+              </td>
             </tr>
             <?php endforeach; ?>
           </tbody>
