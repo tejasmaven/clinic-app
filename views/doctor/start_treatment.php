@@ -27,9 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       'exercise_id' => $_POST['exercises_exercise_id'],
       'reps' => $_POST['exercises_reps'],
       'duration_minutes' => $_POST['exercises_duration_minutes'],
-      'notes' => $_POST['exercises_notes']
+      'notes' => $_POST['exercises_notes'],
+      'new_name' => $_POST['new_exercise_name'] ?? []
     ];
-    
+
     $data = [
         'patient_id' => $_POST['patient_id'],
         'episode_id' => $_POST['episode_id'],
@@ -37,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'doctor_id' => $_SESSION['user_id'],
         'remarks' => $_POST['remarks'] ?? '',
         'progress_notes' => $_POST['progress_notes'] ?? '',
-        'exercises' => $exercises_data
+        'advise' => $_POST['advise'] ?? '',
+        'exercises' => $exercises_data,
+        'file' => $_FILES['session_file'] ?? null
     ];
     $result = $treatmentController->saveSession($data);
     header("Location: start_treatment.php?episode_id=" . $episode_id."&patient_id=".$patient_id);
@@ -61,7 +64,7 @@ include '../../includes/header.php';
 
 
 
-  <form method="POST">
+  <form method="POST" enctype="multipart/form-data">
     <input type="hidden" name="patient_id" value="<?= $patient_id ?>">
     <input type="hidden" name="episode_id" value="<?= $episode_id ?>">
 
@@ -79,6 +82,7 @@ include '../../includes/header.php';
                   'session_date' => $ex['session_date'],
                   'remarks' => $ex['remarks'],
                   'progress_notes' => $ex['progress_notes'],
+                  'advise' => $ex['advise'],
                   'exercises' => []
               ];
           }
@@ -102,7 +106,8 @@ include '../../includes/header.php';
             <div class="accordion-body p-0">
               <div class="p-3">
                 <strong>Doctor's Remarks:</strong> <?= htmlspecialchars($session['remarks']) ?><br>
-                <strong>Progress Notes:</strong> <?= htmlspecialchars($session['progress_notes']) ?>
+                <strong>Progress Notes:</strong> <?= htmlspecialchars($session['progress_notes']) ?><br>
+                <strong>Advise:</strong> <?= htmlspecialchars($session['advise']) ?>
               </div>
               <?php if (!empty($session['exercises'])): ?>
               <table class="table table-bordered table-hover mb-0">
@@ -150,6 +155,16 @@ include '../../includes/header.php';
       <textarea name="progress_notes" class="form-control" rows="2"></textarea>
     </div>
 
+    <div class="mb-3">
+      <label class="form-label">Advise</label>
+      <textarea name="advise" class="form-control" rows="2"></textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Upload File</label>
+      <input type="file" name="session_file" class="form-control" />
+    </div>
+
     <button type="submit" class="btn btn-primary">Save Treatment</button>
   </form>
   </div>
@@ -170,12 +185,13 @@ include '../../includes/header.php';
     row.innerHTML = `
       <div class="col-md-4">
         <select name="exercises_exercise_id[]" class="form-select exercise-select"></select>
+        <input type="text" name="new_exercise_name[]" class="form-control mt-2 d-none other-name" placeholder="Exercise Name">
       </div>
       <div class="col-md-2">
-        <input type="number" name="exercises_reps[]" class="form-control" placeholder="Reps">
+        <input type="number" name="exercises_reps[]" class="form-control reps-input" placeholder="Reps">
       </div>
       <div class="col-md-2">
-        <input type="number" name="exercises_duration_minutes[]" class="form-control" placeholder="Duration (min)">
+        <input type="number" name="exercises_duration_minutes[]" class="form-control duration-input" placeholder="Duration (min)">
       </div>
       <div class="col-md-3">
         <input type="text" name="exercises_notes[]" class="form-control" placeholder="Notes">
@@ -187,12 +203,15 @@ include '../../includes/header.php';
 
     container.appendChild(row);
     updateExerciseOptions();
-    row.querySelector('.exercise-select').addEventListener('change', updateExerciseOptions);
+    row.querySelector('.exercise-select').addEventListener('change', function(){
+      handleExerciseChange(this);
+      updateExerciseOptions();
+    });
   }
 
   function updateExerciseOptions() {
     const selects = document.querySelectorAll('.exercise-select');
-    const selectedValues = Array.from(selects).map(s => s.value).filter(v => v);
+    const selectedValues = Array.from(selects).map(s => s.value).filter(v => v && v !== 'other');
     selects.forEach(sel => {
       const currentValue = sel.value;
       if ($(sel).data('select2')) {
@@ -202,10 +221,36 @@ include '../../includes/header.php';
         exerciseMaster.map(ex => {
           const disabled = selectedValues.includes(String(ex.id)) && String(ex.id) !== currentValue;
           return `<option value="${ex.id}" ${disabled ? 'disabled' : ''}>${ex.name}</option>`;
-        }).join('');
+        }).join('') + '<option value="other">Others</option>';
       sel.value = currentValue;
       $(sel).select2({width: '100%'});
+      if(sel.value === 'other'){
+        handleExerciseChange(sel);
+      }
     });
+  }
+
+  function handleExerciseChange(sel){
+    const row = sel.closest('.exercise-row');
+    const isOther = sel.value === 'other';
+    const nameInput = row.querySelector('.other-name');
+    const repsInput = row.querySelector('.reps-input');
+    const durationInput = row.querySelector('.duration-input');
+    if(isOther){
+      nameInput.classList.remove('d-none');
+      nameInput.required = true;
+      repsInput.required = true;
+      durationInput.required = true;
+      repsInput.placeholder = 'Default Reps';
+      durationInput.placeholder = 'Default Duration (min)';
+    } else {
+      nameInput.classList.add('d-none');
+      nameInput.required = false;
+      repsInput.required = false;
+      durationInput.required = false;
+      repsInput.placeholder = 'Reps';
+      durationInput.placeholder = 'Duration (min)';
+    }
   }
 
   function removeRow(btn) {
