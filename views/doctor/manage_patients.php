@@ -58,6 +58,7 @@ include '../../includes/header.php';
           <td>
             <a href="select_or_create_episode.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-info">Start Treatment</a>
             <a href="patient_form.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-info">Edit</a>
+            <a href="../shared/manage_patients_files.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-warning">View Files</a>
           </td>
         </tr>
         <?php endforeach; ?>
