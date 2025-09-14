@@ -26,6 +26,10 @@ class PatientController {
         $errors[] = "Valid Emergency Contact Number is required (10 digits).";
     }
 
+    if (!empty($_FILES['reports']['name'][0]) && count($_FILES['reports']['name']) > 5) {
+        $errors[] = "You can upload a maximum of 5 files.";
+    }
+
     if (!empty($errors)) {
         return implode("<br>", $errors);
     }
@@ -33,7 +37,7 @@ class PatientController {
     $sqlFields = [
         'first_name', 'last_name', 'date_of_birth', 'gender', 'contact_number',
         'email', 'address', 'emergency_contact_name', 'emergency_contact_number',
-        'referral_source', 'medical_history', 'allergies',
+        'referral_source',
         'allergy_medicines_in_use', 'family_history', 'history', 'chief_complaints',
         'assessment', 'investigation', 'diagnosis', 'goal'
     ];
@@ -64,11 +68,11 @@ class PatientController {
         $patientId = !empty($data['id']) ? $data['id'] : $this->pdo->lastInsertId();
 
         if (!empty($_FILES['reports']['name'][0])) {
-            $uploadDir = dirname(__DIR__) . '/uploads/patient_docs/';
+            $uploadDir = dirname(__DIR__) . '/uploads/patient_docs/' . $patientId . '/';
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0777, true);
             }
-            $count = min(count($_FILES['reports']['name']), 5);
+            $count = count($_FILES['reports']['name']);
             for ($i = 0; $i < $count; $i++) {
                 if ($_FILES['reports']['error'][$i] === UPLOAD_ERR_OK) {
                     $original = $_FILES['reports']['name'][$i];
@@ -95,6 +99,12 @@ class PatientController {
 
     public function getReferralSources() {
         $stmt = $this->pdo->query("SELECT id, name FROM referral_sources ORDER BY name ASC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getPatientFiles($patientId) {
+        $stmt = $this->pdo->prepare("SELECT id, file_name, upload_date FROM file_master WHERE patient_id = ? ORDER BY upload_date DESC");
+        $stmt->execute([$patientId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
