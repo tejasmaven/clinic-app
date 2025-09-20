@@ -34,18 +34,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $referrals = $controller->getReferralSources();
 include '../../includes/header.php';
 ?>
-<div class="row">
-  <div class="col-md-3"><?php include '../../layouts/doctor_sidebar.php'; ?></div>
-  <div class="col-md-9">
-    <h4><?= $editing ? 'Edit' : 'Add' ?> Patient</h4>
+<div class="workspace-layout">
+  <?php include '../../layouts/doctor_sidebar.php'; ?>
+  <div class="workspace-content">
+    <div class="workspace-page-header">
+      <div>
+        <h1 class="workspace-page-title"><?= $editing ? 'Edit Patient Details' : 'Add New Patient' ?></h1>
+        <p class="workspace-page-subtitle">Maintain comprehensive records for every patient entering the clinic.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="manage_patients.php" class="btn btn-outline-secondary">Back to Patients</a>
+      </div>
+    </div>
 
     <?php if (!empty($msg)): ?>
       <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
     <?php endif; ?>
 
-    <form method="POST" id="patientForm" enctype="multipart/form-data">
-      <?php include '../../views/shared/patient_form_content.php'; ?>
-    </form>
+    <div class="app-card">
+      <form method="POST" id="patientForm" enctype="multipart/form-data">
+        <?php include '../../views/shared/patient_form_content.php'; ?>
+      </form>
+    </div>
   </div>
 </div>
 
+<?php include '../../includes/footer.php'; ?>

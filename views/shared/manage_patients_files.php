@@ -23,57 +23,74 @@ $files = $controller->getPatientFiles($patientId);
 
 include '../../includes/header.php';
 ?>
-
-<div class="row">
-  <div class="col-md-3">
-    <?php
-      switch ($_SESSION['role']) {
-        case 'Doctor':
-          include '../../layouts/doctor_sidebar.php';
-          break;
-        case 'Receptionist':
-          include '../../layouts/receptionist_sidebar.php';
-          break;
-        default:
-          include '../../layouts/admin_sidebar.php';
-      }
-    ?>
-  </div>
-  <div class="col-md-9">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h4>Files for <?= htmlspecialchars($patient['first_name'] . ' ' . $patient['last_name']) ?></h4>
-      <a href="javascript:history.back()" class="btn btn-secondary">Back</a>
+<div class="workspace-layout">
+  <?php
+    switch ($_SESSION['role']) {
+      case 'Doctor':
+        include '../../layouts/doctor_sidebar.php';
+        break;
+      case 'Receptionist':
+        include '../../layouts/receptionist_sidebar.php';
+        break;
+      default:
+        include '../../layouts/admin_sidebar.php';
+    }
+  ?>
+  <div class="workspace-content">
+    <div class="workspace-page-header">
+      <div>
+        <h1 class="workspace-page-title">Patient Files</h1>
+        <p class="workspace-page-subtitle">Review uploaded documents for <?= htmlspecialchars($patient['first_name'] . ' ' . $patient['last_name']) ?>.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">Back</a>
+      </div>
     </div>
-    <p>
-      <strong>Gender:</strong> <?= htmlspecialchars($patient['gender']) ?> |
-      <strong>DOB:</strong> <?= htmlspecialchars($patient['date_of_birth']) ?> |
-      <strong>Contact:</strong> <?= htmlspecialchars($patient['contact_number']) ?>
-    </p>
 
-    <?php if (!empty($files)): ?>
-    <table class="table table-bordered">
-      <thead>
-        <tr>
-          <th>File Name</th>
-          <th>Uploaded On</th>
-          <th>Download</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($files as $file): ?>
-        <tr>
-          <td><?= htmlspecialchars($file['file_name']) ?></td>
-          <td><?= date('d M Y', strtotime($file['upload_date'])) ?></td>
-          <td>
-            <a href="<?= BASE_URL ?>/views/shared/download_file.php?patient_id=<?= $patientId ?>&file=<?= urlencode($file['file_name']) ?>" class="btn btn-sm btn-primary">Download</a>
-          </td>
-        </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-    <?php else: ?>
-      <p>No files uploaded for this patient.</p>
-    <?php endif; ?>
+    <div class="app-card">
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <strong>Gender:</strong> <?= htmlspecialchars($patient['gender']) ?>
+        </div>
+        <div class="col-12 col-md-4">
+          <strong>DOB:</strong> <?= htmlspecialchars($patient['date_of_birth']) ?>
+        </div>
+        <div class="col-12 col-md-4">
+          <strong>Contact:</strong> <?= htmlspecialchars($patient['contact_number']) ?>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-card">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th scope="col">File Name</th>
+              <th scope="col">Uploaded On</th>
+              <th scope="col">Download</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php if (!empty($files)): ?>
+              <?php foreach ($files as $file): ?>
+                <tr>
+                  <td><?= htmlspecialchars($file['file_name']) ?></td>
+                  <td><?= date('d M Y', strtotime($file['upload_date'])) ?></td>
+                  <td>
+                    <a href="<?= BASE_URL ?>/views/shared/download_file.php?patient_id=<?= $patientId ?>&file=<?= urlencode($file['file_name']) ?>" class="btn btn-sm btn-outline-primary">Download</a>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <tr>
+                <td colspan="3" class="text-center text-muted py-4">No files uploaded for this patient.</td>
+              </tr>
+            <?php endif; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
