@@ -14,69 +14,84 @@ $limit = 10;
 
 $patients = $controller->getPatients($search, $page, $limit);
 $total = $controller->countPatients($search);
-$totalPages = ceil($total / $limit);
+$totalPages = (int) ceil($total / $limit);
+$flash = $_GET['msg'] ?? '';
 
 include '../../includes/header.php';
 ?>
 
-<div class="row">
-  <div class="col-md-3"><?php include '../../layouts/admin_sidebar.php'; ?></div>
-  <div class="col-md-9">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h4>Patient Onboarding</h4>
-      <a href="patient_form.php" class="btn btn-success">+ Add New Patient</a>
+<div class="admin-layout">
+    <?php include '../../layouts/admin_sidebar.php'; ?>
+    <div class="admin-content">
+        <div class="admin-page-header">
+            <div>
+                <h1 class="admin-page-title">Patient Onboarding</h1>
+                <p class="admin-page-subtitle">Review and manage patient profiles in one place.</p>
+            </div>
+            <a href="patient_form.php" class="btn btn-success">+ Add New Patient</a>
+        </div>
+
+        <?php if (!empty($flash)): ?>
+            <div class="alert alert-success" role="alert"><?= htmlspecialchars($flash) ?></div>
+        <?php endif; ?>
+
+        <div class="app-card">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-12 col-md-6 col-lg-4">
+                    <label for="search" class="form-label">Search patients</label>
+                    <input type="text" id="search" name="search" class="form-control" placeholder="Search by name" value="<?= htmlspecialchars($search) ?>">
+                </div>
+                <div class="col-12 col-md-3 col-lg-2">
+                    <button class="btn btn-primary w-100">Search</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Gender</th>
+                        <th scope="col">DOB</th>
+                        <th scope="col">Contact</th>
+                        <th scope="col">Referral</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($patients as $p): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($p['first_name'] . ' ' . $p['last_name']) ?></td>
+                        <td><?= htmlspecialchars($p['gender']) ?></td>
+                        <td><?= htmlspecialchars($p['date_of_birth']) ?></td>
+                        <td><?= htmlspecialchars($p['contact_number']) ?></td>
+                        <td><?= htmlspecialchars($p['referral_source']) ?></td>
+                        <td class="text-end">
+                            <div class="d-flex flex-wrap justify-content-end gap-2">
+                                <a href="patient_form.php?id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-info">Edit</a>
+                                <a href="../shared/manage_payments.php?patient_id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-secondary">Payments</a>
+                                <a href="../shared/manage_patients_files.php?patient_id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-warning">View Files</a>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <?php if ($totalPages > 1): ?>
+        <nav aria-label="Patient pagination" class="d-flex justify-content-end">
+            <ul class="pagination mt-3">
+                <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+                <li class="page-item <?= $p == $page ? 'active' : '' ?>">
+                    <a class="page-link" href="?search=<?= urlencode($search) ?>&page=<?= $p ?>"><?= $p ?></a>
+                </li>
+                <?php endfor; ?>
+            </ul>
+        </nav>
+        <?php endif; ?>
     </div>
-
-    <form method="GET" class="mb-3 row g-2">
-      <div class="col-md-6">
-        <input type="text" name="search" class="form-control" placeholder="Search by name..." value="<?= htmlspecialchars($search) ?>">
-      </div>
-      <div class="col-md-2">
-        <button class="btn btn-primary">Search</button>
-      </div>
-    </form>
-
-    <table class="table table-bordered table-hover">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Gender</th>
-          <th>DOB</th>
-          <th>Contact</th>
-          <th>Referral</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($patients as $p): ?>
-        <tr>
-          <td><?= htmlspecialchars($p['first_name'] . ' ' . $p['last_name']) ?></td>
-          <td><?= htmlspecialchars($p['gender']) ?></td>
-          <td><?= htmlspecialchars($p['date_of_birth']) ?></td>
-          <td><?= htmlspecialchars($p['contact_number']) ?></td>
-          <td><?= htmlspecialchars($p['referral_source']) ?></td>
-          <td>
-            <a href="patient_form.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-info">Edit</a>
-            <a href="../shared/manage_payments.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-secondary">Payments</a>
-            <a href="../shared/manage_patients_files.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-warning">View Files</a>
-          </td>
-        </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-
-    <?php if ($totalPages > 1): ?>
-    <nav>
-      <ul class="pagination">
-        <?php for ($p = 1; $p <= $totalPages; $p++): ?>
-        <li class="page-item <?= $p == $page ? 'active' : '' ?>">
-          <a class="page-link" href="?search=<?= urlencode($search) ?>&page=<?= $p ?>"><?= $p ?></a>
-        </li>
-        <?php endfor; ?>
-      </ul>
-    </nav>
-    <?php endif; ?>
-  </div>
 </div>
 
 <?php include '../../includes/footer.php'; ?>
