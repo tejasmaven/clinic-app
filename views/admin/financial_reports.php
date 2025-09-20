@@ -26,7 +26,6 @@ $reportController = new FinancialReportController($pdo);
 
 if (isset($_GET['export']) && $_GET['export'] === '1') {
     $summary = $reportController->getSummary($startDate, $endDate);
-    $history = $reportController->getPaymentHistory($startDate, $endDate);
     $patientReport = $reportController->getPatientReport($startDate, $endDate);
 
     $filename = 'financial_report_' . $startDate . '_to_' . $endDate . '.csv';
@@ -42,22 +41,6 @@ if (isset($_GET['export']) && $_GET['export'] === '1') {
         fputcsv($output, ['Total Payments Received', number_format($summary['total_received'], 2, '.', '')]);
         fputcsv($output, ['Total Charges', number_format($summary['total_charges'], 2, '.', '')]);
         fputcsv($output, ['Total Pending Charges', number_format($summary['total_pending'], 2, '.', '')]);
-        fputcsv($output, []);
-
-        fputcsv($output, ['Payment History']);
-        fputcsv($output, ['Date', 'Patient', 'Type', 'Amount', 'Status', 'Notes']);
-        foreach ($history as $entry) {
-            fputcsv($output, [
-                $entry['transaction_date'],
-                $entry['patient_name'],
-                ucfirst($entry['transaction_type']),
-                number_format($entry['amount'], 2, '.', ''),
-                ucfirst($entry['status']),
-                $entry['notes'],
-            ]);
-        }
-        fputcsv($output, []);
-
         fputcsv($output, ['Patient Balances']);
         fputcsv($output, ['Patient', 'Contact Number', 'Payments (Range)', 'Charges (Range)', 'Pending Balance', 'Credit Balance']);
         foreach ($patientReport as $patient) {
@@ -78,7 +61,6 @@ if (isset($_GET['export']) && $_GET['export'] === '1') {
 
 $summary = $reportController->getSummary($startDate, $endDate);
 $dailyTotals = $reportController->getDailyTotals($startDate, $endDate);
-$paymentHistory = $reportController->getPaymentHistory($startDate, $endDate);
 $patientBalances = $reportController->getPatientReport($startDate, $endDate);
 
 $chartLabels = [];
@@ -189,54 +171,6 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-white">Payment History</div>
-            <div class="table-responsive">
-                <table class="table table-striped mb-0">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Patient</th>
-                            <th>Type</th>
-                            <th class="text-end">Amount</th>
-                            <th>Status</th>
-                            <th>Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (!empty($paymentHistory)): ?>
-                            <?php foreach ($paymentHistory as $entry): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars(date('Y-m-d', strtotime($entry['transaction_date']))) ?></td>
-                                    <td>
-                                        <strong><?= htmlspecialchars($entry['patient_name']) ?></strong><br>
-                                        <small class="text-muted"><?= htmlspecialchars($entry['contact_number'] ?: 'N/A') ?></small>
-                                    </td>
-                                    <td><?= htmlspecialchars(ucfirst($entry['transaction_type'])) ?></td>
-                                    <td class="text-end">R <?= number_format($entry['amount'], 2) ?></td>
-                                    <td>
-                                        <?php $statusClass = ($entry['status'] === 'received') ? 'bg-success' : 'bg-warning text-dark'; ?>
-                                        <span class="badge <?= $statusClass ?>"><?= htmlspecialchars(ucfirst($entry['status'])) ?></span>
-                                    </td>
-                                    <td>
-                                        <?php if (!empty($entry['notes'])): ?>
-                                            <?= htmlspecialchars($entry['notes']) ?>
-                                        <?php else: ?>
-                                            <span class="text-muted">&mdash;</span>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="6" class="text-center text-muted">No payment history found for the selected period.</td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
         <div class="card shadow-sm">
             <div class="card-header bg-white">Patient Balances</div>
             <div class="table-responsive">
@@ -249,6 +183,7 @@ include '../../includes/header.php';
                             <th class="text-end">Charges (Range)</th>
                             <th class="text-end">Pending Balance</th>
                             <th class="text-end">Credit Balance</th>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -267,11 +202,14 @@ include '../../includes/header.php';
                                     <td class="text-end">R <?= number_format($patient['charges_incurred'], 2) ?></td>
                                     <td class="text-end text-danger">R <?= number_format($patient['pending_balance'], 2) ?></td>
                                     <td class="text-end text-success">R <?= number_format($patient['credit_balance'], 2) ?></td>
+                                    <td class="text-end">
+                                        <a class="btn btn-sm btn-outline-primary" href="../shared/manage_payments.php?patient_id=<?= urlencode((string) $patient['patient_id']) ?>">View</a>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="6" class="text-center text-muted">No patient balances to display for the selected period.</td>
+                                <td colspan="7" class="text-center text-muted">No patient balances to display for the selected period.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
