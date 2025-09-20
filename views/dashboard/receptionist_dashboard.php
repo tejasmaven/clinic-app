@@ -9,19 +9,22 @@ $totalPatients = $pdo->query("SELECT COUNT(*) FROM patients")->fetchColumn();
 
 include '../../includes/header.php';
 ?>
-<div class="row">
-  <div class="col-md-3"><?php include '../../layouts/receptionist_sidebar.php'; ?></div>
-  <div class="col-md-9">
-    <h4>Receptionist Dashboard</h4>
-    <p>Welcome, <?= htmlspecialchars($_SESSION['name']) ?>!</p>
-    <div class="row g-4 mt-3">
-      <div class="col-md-4">
-        <div class="card text-bg-primary">
-          <div class="card-body">
-            <h5 class="card-title">Total Patients</h5>
-            <p class="display-6"><?= $totalPatients ?></p>
-            <a href="<?= BASE_URL ?>/views/receptionist/manage_patients.php" class="btn btn-light btn-sm">Manage Patients</a>
-          </div>
+<div class="workspace-layout">
+  <?php include '../../layouts/receptionist_sidebar.php'; ?>
+  <div class="workspace-content">
+    <div class="workspace-page-header">
+      <div>
+        <h1 class="workspace-page-title">Reception Dashboard</h1>
+        <p class="workspace-page-subtitle">Keep patient onboarding running smoothly, <?= htmlspecialchars($_SESSION['name']) ?>.</p>
+      </div>
+    </div>
+
+    <div class="row g-3 g-lg-4">
+      <div class="col-12 col-sm-6 col-xl-4">
+        <div class="stat-card bg-primary text-white h-100">
+          <div class="text-uppercase small text-white-50 fw-semibold">Total Patients</div>
+          <div class="display-6 my-2"><?= number_format((int) $totalPatients) ?></div>
+          <a href="<?= BASE_URL ?>/views/receptionist/manage_patients.php" class="btn btn-light btn-sm mt-2">Manage Patients</a>
         </div>
       </div>
     </div>

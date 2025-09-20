@@ -13,36 +13,50 @@ $patients = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
 include '../../includes/header.php';
 ?>
-<div class="row">
-  <div class="col-md-3"><?php include '../../layouts/doctor_sidebar.php'; ?></div>
-  <div class="col-md-9">
-    <h4>Active Patients</h4>
-    <table class="table table-bordered table-hover">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Gender</th>
-          <th>DOB</th>
-          <th>Contact</th>
-          <th>Referral</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($patients as $p): ?>
-        <tr>
-          <td><?= htmlspecialchars($p['first_name'] . ' ' . $p['last_name']) ?></td>
-          <td><?= htmlspecialchars($p['gender']) ?></td>
-          <td><?= htmlspecialchars($p['date_of_birth']) ?></td>
-          <td><?= htmlspecialchars($p['contact_number']) ?></td>
-          <td><?= htmlspecialchars($p['referral_source']) ?></td>
-          <td>
-            <a href="select_or_create_episode.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-info">View</a>
-          </td>
-        </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+<div class="workspace-layout">
+  <?php include '../../layouts/doctor_sidebar.php'; ?>
+  <div class="workspace-content">
+    <div class="workspace-page-header">
+      <div>
+        <h1 class="workspace-page-title">Active Treatment Episodes</h1>
+        <p class="workspace-page-subtitle">Patients currently receiving care under your supervision.</p>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Gender</th>
+            <th scope="col">DOB</th>
+            <th scope="col">Contact</th>
+            <th scope="col">Referral</th>
+            <th scope="col" class="text-nowrap">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (!empty($patients)): ?>
+            <?php foreach ($patients as $p): ?>
+              <tr>
+                <td><?= htmlspecialchars($p['first_name'] . ' ' . $p['last_name']) ?></td>
+                <td><?= htmlspecialchars($p['gender']) ?></td>
+                <td><?= htmlspecialchars($p['date_of_birth']) ?></td>
+                <td><?= htmlspecialchars($p['contact_number']) ?></td>
+                <td><?= htmlspecialchars($p['referral_source']) ?></td>
+                <td>
+                  <a href="select_or_create_episode.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-primary">Open Episode</a>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">There are no active treatment episodes right now.</td>
+            </tr>
+          <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 <?php include '../../includes/footer.php'; ?>

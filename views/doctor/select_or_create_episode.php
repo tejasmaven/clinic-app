@@ -50,44 +50,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include '../../includes/header.php';
 
 ?>
-<div class="row">
-  <div class="col-md-3"><?php include '../../layouts/doctor_sidebar.php'; ?></div>
-  <div class="col-md-9">
-    <h4>Select or Create Treatment Episode</h4>
-    <p><strong>Patient:</strong> <?= htmlspecialchars($patient['first_name'] . ' ' . $patient['last_name']) ?></p>
+<div class="workspace-layout">
+  <?php include '../../layouts/doctor_sidebar.php'; ?>
+  <div class="workspace-content">
+    <div class="workspace-page-header">
+      <div>
+        <h1 class="workspace-page-title">Treatment Episodes</h1>
+        <p class="workspace-page-subtitle">Manage care plans for <?= htmlspecialchars($patient['first_name'] . ' ' . $patient['last_name']) ?>.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="manage_patients.php" class="btn btn-outline-secondary">Back to Patients</a>
+      </div>
+    </div>
 
-    <?php if (!empty($msg)): ?>
-      <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
-    <?php endif; ?>
+    <div class="app-card mb-4">
+      <h5 class="mb-3">Existing Episodes</h5>
+      <?php if ($episodes): ?>
+        <div class="list-group">
+          <?php foreach ($episodes as $ep): ?>
+            <div class="list-group-item d-flex flex-column flex-md-row gap-2 justify-content-between align-items-md-center">
+              <div>
+                <div class="fw-semibold">Started on <?= htmlspecialchars($ep['start_date']) ?></div>
+                <div class="text-muted small"><?= htmlspecialchars($ep['initial_complaints']) ?></div>
+              </div>
+              <a class="btn btn-sm btn-primary" href="start_treatment.php?patient_id=<?= $patient_id ?>&episode_id=<?= $ep['id'] ?>">Log Session</a>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php else: ?>
+        <p class="text-muted mb-0">No treatment episodes recorded yet.</p>
+      <?php endif; ?>
+    </div>
 
-    <h5>Existing Episodes</h5>
-    <?php if ($episodes): ?>
-        <ul class="list-group mb-4">
-            <?php foreach ($episodes as $ep): ?>
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <?= htmlspecialchars($ep['start_date']) ?> - <?= htmlspecialchars($ep['initial_complaints']) ?>
-                    <a class="btn btn-sm btn-primary" href="start_treatment.php?patient_id=<?= $patient_id ?>&episode_id=<?= $ep['id'] ?>">Log Session</a>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-    <?php else: ?>
-        <p class="text-muted">No episodes found.</p>
-    <?php endif; ?>
-
-    <h5>Start New Episode</h5>
-    <form method="post">
+    <div class="app-card">
+      <h5 class="mb-3">Start New Episode</h5>
+      <form method="post" class="row g-3">
         <input type="hidden" name="patient_id" value="<?= $patient_id ?>">
-        <div class="mb-3">
-            <label for="start_date" class="form-label">Start Date</label>
-            <input type="date" name="start_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
+        <div class="col-12 col-md-4">
+          <label for="start_date" class="form-label">Start Date</label>
+          <input type="date" name="start_date" id="start_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
         </div>
-        <div class="mb-3">
-            <label for="initial_complaints" class="form-label">Complaint Summary</label>
-            <textarea name="initial_complaints" class="form-control" required></textarea>
+        <div class="col-12">
+          <label for="initial_complaints" class="form-label">Initial Complaint Summary</label>
+          <textarea name="initial_complaints" id="initial_complaints" class="form-control" rows="3" placeholder="Summarise the patient's presentation" required></textarea>
         </div>
-        <button type="submit" class="btn btn-success">Create & Proceed</button>
-    </form>
+        <div class="col-12 col-md-4 col-lg-3">
+          <button type="submit" class="btn btn-success w-100">Create &amp; Proceed</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
-    <script src="../../assets/js/bootstrap.bundle.min.js"></script>
- <?php include '../../includes/footer.php'; ?>   
+
+<?php include '../../includes/footer.php'; ?>
