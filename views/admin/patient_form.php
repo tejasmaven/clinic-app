@@ -35,19 +35,26 @@ $referrals = $controller->getReferralSources();
 include '../../includes/header.php';
 ?>
 
-<div class="row">
-  <div class="col-md-3"><?php include '../../layouts/admin_sidebar.php'; ?></div>
-  <div class="col-md-9">
-    <h4><?= $editing ? 'Edit' : 'Add' ?> Patient</h4>
+<div class="admin-layout">
+    <?php include '../../layouts/admin_sidebar.php'; ?>
+    <div class="admin-content">
+        <div class="admin-page-header">
+            <div>
+                <h1 class="admin-page-title"><?= $editing ? 'Edit' : 'Add' ?> Patient</h1>
+                <p class="admin-page-subtitle">Complete the multi-step intake to capture patient information.</p>
+            </div>
+        </div>
 
-    <?php if (!empty($msg)): ?>
-      <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
-    <?php endif; ?>
+        <?php if (!empty($msg)): ?>
+            <div class="alert alert-info" role="alert"><?= htmlspecialchars($msg) ?></div>
+        <?php endif; ?>
 
-    <form method="POST" id="patientForm" enctype="multipart/form-data">
-      <?php include '../../views/shared/patient_form_content.php'; ?>
-    </form>
-  </div>
+        <div class="app-card">
+            <form method="POST" id="patientForm" enctype="multipart/form-data">
+                <?php include '../../views/shared/patient_form_content.php'; ?>
+            </form>
+        </div>
+    </div>
 </div>
 
 <?php include '../../includes/footer.php'; ?>

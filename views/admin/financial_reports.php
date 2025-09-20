@@ -98,83 +98,79 @@ $displayEnd = $endDateObj->format('M d, Y');
 include '../../includes/header.php';
 ?>
 
-<div class="row">
-    <div class="col-md-3 mb-4 mb-md-0"><?php include '../../layouts/admin_sidebar.php'; ?></div>
-    <div class="col-md-9">
-        <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-4">
+<div class="admin-layout">
+    <?php include '../../layouts/admin_sidebar.php'; ?>
+    <div class="admin-content">
+        <div class="admin-page-header">
             <div>
-                <h4 class="mb-1">Financial Reports</h4>
-                <p class="text-muted mb-0">Showing transactions from <?= htmlspecialchars($displayStart) ?> to <?= htmlspecialchars($displayEnd) ?></p>
+                <h1 class="admin-page-title">Financial Reports</h1>
+                <p class="admin-page-subtitle">Showing transactions from <?= htmlspecialchars($displayStart) ?> to <?= htmlspecialchars($displayEnd) ?></p>
             </div>
-            <a class="btn btn-outline-secondary mt-3 mt-md-0" href="?<?= htmlspecialchars($downloadQuery) ?>">Download Excel</a>
+            <a class="btn btn-outline-secondary" href="?<?= htmlspecialchars($downloadQuery) ?>">Download Excel</a>
         </div>
 
-        <form method="get" class="row g-3 align-items-end mb-4">
-            <div class="col-sm-6 col-lg-4">
-                <label for="start_date" class="form-label">Start Date</label>
-                <input type="date" class="form-control" id="start_date" name="start_date" value="<?= htmlspecialchars($startDate) ?>">
-            </div>
-            <div class="col-sm-6 col-lg-4">
-                <label for="end_date" class="form-label">End Date</label>
-                <input type="date" class="form-control" id="end_date" name="end_date" value="<?= htmlspecialchars($endDate) ?>">
-            </div>
-            <div class="col-sm-12 col-lg-3">
-                <button class="btn btn-primary w-100">Apply Filters</button>
-            </div>
-        </form>
+        <div class="app-card">
+            <form method="get" class="row g-3 align-items-end mb-0">
+                <div class="col-12 col-sm-6 col-lg-4">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" value="<?= htmlspecialchars($startDate) ?>">
+                </div>
+                <div class="col-12 col-sm-6 col-lg-4">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" value="<?= htmlspecialchars($endDate) ?>">
+                </div>
+                <div class="col-12 col-sm-12 col-lg-3">
+                    <button class="btn btn-primary w-100">Apply Filters</button>
+                </div>
+            </form>
+        </div>
 
-        <div class="row g-3 mb-4">
-            <div class="col-md-4">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body">
-                        <h6 class="text-uppercase text-muted mb-2">Payments Received</h6>
-                        <div class="display-6 text-success">R <?= number_format($summary['total_received'], 2) ?></div>
-                    </div>
+        <div class="row g-3 g-lg-4">
+            <div class="col-12 col-md-4">
+                <div class="app-card h-100">
+                    <h6 class="text-uppercase text-muted mb-2">Payments Received</h6>
+                    <div class="display-6 text-success mb-0">R <?= number_format($summary['total_received'], 2) ?></div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body">
-                        <h6 class="text-uppercase text-muted mb-2">Pending Charges</h6>
-                        <div class="display-6 text-warning">R <?= number_format($summary['total_pending'], 2) ?></div>
-                    </div>
+            <div class="col-12 col-md-4">
+                <div class="app-card h-100">
+                    <h6 class="text-uppercase text-muted mb-2">Pending Charges</h6>
+                    <div class="display-6 text-warning mb-0">R <?= number_format($summary['total_pending'], 2) ?></div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body">
-                        <h6 class="text-uppercase text-muted mb-2">Total Charges</h6>
-                        <div class="display-6 text-primary">R <?= number_format($summary['total_charges'], 2) ?></div>
-                    </div>
+            <div class="col-12 col-md-4">
+                <div class="app-card h-100">
+                    <h6 class="text-uppercase text-muted mb-2">Total Charges</h6>
+                    <div class="display-6 text-primary mb-0">R <?= number_format($summary['total_charges'], 2) ?></div>
                 </div>
             </div>
         </div>
 
-        <div class="row g-3 mb-4">
-            <div class="col-lg-8">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-white">Daily Payments &amp; Charges</div>
-                    <div class="card-body" style="min-height: 320px;">
+        <div class="row g-3 g-lg-4">
+            <div class="col-12 col-lg-8">
+                <div class="app-card h-100">
+                    <h5 class="mb-3">Daily Payments &amp; Charges</h5>
+                    <div class="position-relative" style="min-height: 320px;">
                         <canvas id="dailyBreakdownChart" height="280"></canvas>
-                        <p id="dailyChartEmpty" class="text-muted text-center mb-0<?= !empty($dailyTotals) ? ' d-none' : '' ?>">No transactions found for the selected period.</p>
+                        <p id="dailyChartEmpty" class="text-muted text-center mb-0 position-absolute top-50 start-50 translate-middle<?= !empty($dailyTotals) ? ' d-none' : '' ?>">No transactions found for the selected period.</p>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-4">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-white">Received vs Pending</div>
-                    <div class="card-body" style="min-height: 320px;">
+            <div class="col-12 col-lg-4">
+                <div class="app-card h-100">
+                    <h5 class="mb-3">Received vs Pending</h5>
+                    <div class="position-relative" style="min-height: 320px;">
                         <canvas id="statusSummaryChart" height="280"></canvas>
-                        <p id="statusChartEmpty" class="text-muted text-center mb-0<?= ($summary['total_received'] + $summary['total_pending']) > 0 ? ' d-none' : '' ?>">No payment totals available.</p>
+                        <p id="statusChartEmpty" class="text-muted text-center mb-0 position-absolute top-50 start-50 translate-middle<?= ($summary['total_received'] + $summary['total_pending']) > 0 ? ' d-none' : '' ?>">No payment totals available.</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="card shadow-sm">
-            <div class="card-header bg-white">Patient Balances</div>
+        <div class="app-card">
+            <h5 class="mb-3">Patient Balances</h5>
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
                             <th>Patient</th>

@@ -14,56 +14,50 @@ $totalReferrals = $pdo->query("SELECT COUNT(*) FROM referral_sources")->fetchCol
 include '../../includes/header.php';
 ?>
 
-<div class="row">
-    <div class="col-md-3">
-        <?php include '../../layouts/admin_sidebar.php'; ?>
-    </div>
-    <div class="col-md-9">
-        <h4>Admin Dashboard</h4>
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="card text-bg-primary">
-                    <div class="card-body">
-                        <h5 class="card-title">Total Doctors</h5>
-                        <p class="display-6"><?= $totalDoctors ?></p>
-                        <a href="<?= BASE_URL ?>/views/admin/manage_users.php" class="btn btn-light btn-sm">Manage Users</a>
-                    </div>
+<div class="admin-layout">
+    <?php include '../../layouts/admin_sidebar.php'; ?>
+    <div class="admin-content">
+        <div class="admin-page-header">
+            <div>
+                <h1 class="admin-page-title">Admin Dashboard</h1>
+                <p class="admin-page-subtitle">A quick snapshot of clinic activity across teams.</p>
+            </div>
+        </div>
+
+        <div class="row g-3 g-lg-4">
+            <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+                <div class="stat-card bg-primary text-white h-100">
+                    <div class="text-uppercase small text-white-50 fw-semibold">Total Doctors</div>
+                    <div class="display-6 my-2"><?= number_format((int) $totalDoctors) ?></div>
+                    <a href="<?= BASE_URL ?>/views/admin/manage_users.php" class="btn btn-light btn-sm mt-2">Manage Users</a>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card text-bg-success">
-                    <div class="card-body">
-                        <h5 class="card-title">Total Patients</h5>
-                        <p class="display-6"><?= $totalPatients ?></p>
-                        <a href="<?= BASE_URL ?>/views/admin/manage_patients.php" class="btn btn-light btn-sm">View Patients</a>
-                    </div>
+            <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+                <div class="stat-card bg-success text-white h-100">
+                    <div class="text-uppercase small text-white-50 fw-semibold">Total Patients</div>
+                    <div class="display-6 my-2"><?= number_format((int) $totalPatients) ?></div>
+                    <a href="<?= BASE_URL ?>/views/admin/manage_patients.php" class="btn btn-light btn-sm mt-2">View Patients</a>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card text-bg-warning">
-                    <div class="card-body">
-                        <h5 class="card-title">Active Patients</h5>
-                        <p class="display-6"><?= $activePatients ?></p>
-                        <a href="<?= BASE_URL ?>/views/admin/manage_patients.php" class="btn btn-light btn-sm">View Active</a>
-                    </div>
+            <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+                <div class="stat-card bg-warning text-dark h-100">
+                    <div class="text-uppercase small text-dark fw-semibold">Active Patients</div>
+                    <div class="display-6 my-2"><?= number_format((int) $activePatients) ?></div>
+                    <a href="<?= BASE_URL ?>/views/admin/manage_patients.php" class="btn btn-outline-dark btn-sm mt-2">View Active</a>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card text-bg-info">
-                    <div class="card-body">
-                        <h5 class="card-title">Total Exercises</h5>
-                        <p class="display-6"><?= $totalExercises ?></p>
-                        <a href="<?= BASE_URL ?>/views/admin/manage_exercises.php" class="btn btn-light btn-sm">Manage Exercises</a>
-                    </div>
+            <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+                <div class="stat-card bg-info text-white h-100">
+                    <div class="text-uppercase small text-white-50 fw-semibold">Total Exercises</div>
+                    <div class="display-6 my-2"><?= number_format((int) $totalExercises) ?></div>
+                    <a href="<?= BASE_URL ?>/views/admin/manage_exercises.php" class="btn btn-light btn-sm mt-2">Manage Exercises</a>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card text-bg-secondary">
-                    <div class="card-body">
-                        <h5 class="card-title">Referral Sources</h5>
-                        <p class="display-6"><?= $totalReferrals ?></p>
-                        <a href="<?= BASE_URL ?>/views/admin/manage_referrals.php" class="btn btn-light btn-sm">Manage Referrals</a>
-                    </div>
+            <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+                <div class="stat-card bg-secondary text-white h-100">
+                    <div class="text-uppercase small text-white-50 fw-semibold">Referral Sources</div>
+                    <div class="display-6 my-2"><?= number_format((int) $totalReferrals) ?></div>
+                    <a href="<?= BASE_URL ?>/views/admin/manage_referrals.php" class="btn btn-light btn-sm mt-2">Manage Referrals</a>
                 </div>
             </div>
         </div>
