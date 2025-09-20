@@ -73,28 +73,28 @@
   <!-- Step 4 -->
   <div class="tab-pane fade" id="step4">
     <div class="row g-3">
-      <div class="col-md-6"><label>Allergy - medicines in use</label>
+      <div class="col-12"><label>Allergy - medicines in use</label>
         <textarea name="allergy_medicines_in_use" class="form-control"><?= htmlspecialchars($patient['allergy_medicines_in_use'] ?? '') ?></textarea>
       </div>
-      <div class="col-md-6"><label>Family history</label>
+      <div class="col-12"><label>Family history</label>
         <textarea name="family_history" class="form-control"><?= htmlspecialchars($patient['family_history'] ?? '') ?></textarea>
       </div>
-      <div class="col-md-6"><label>History</label>
+      <div class="col-12"><label>History</label>
         <textarea name="history" class="form-control"><?= htmlspecialchars($patient['history'] ?? '') ?></textarea>
       </div>
-      <div class="col-md-6"><label>Chief Complaints</label>
+      <div class="col-12"><label>Chief Complaints</label>
         <textarea name="chief_complaints" class="form-control"><?= htmlspecialchars($patient['chief_complaints'] ?? '') ?></textarea>
       </div>
-      <div class="col-md-6"><label>Assessment</label>
+      <div class="col-12"><label>Assessment</label>
         <textarea name="assessment" class="form-control"><?= htmlspecialchars($patient['assessment'] ?? '') ?></textarea>
       </div>
-      <div class="col-md-6"><label>Investigation</label>
+      <div class="col-12"><label>Investigation</label>
         <textarea name="investigation" class="form-control"><?= htmlspecialchars($patient['investigation'] ?? '') ?></textarea>
       </div>
-      <div class="col-md-6"><label>Diagnosis</label>
+      <div class="col-12"><label>Diagnosis</label>
         <textarea name="diagnosis" class="form-control"><?= htmlspecialchars($patient['diagnosis'] ?? '') ?></textarea>
       </div>
-      <div class="col-md-6"><label>Goal</label>
+      <div class="col-12"><label>Goal</label>
         <textarea name="goal" class="form-control"><?= htmlspecialchars($patient['goal'] ?? '') ?></textarea>
       </div>
     </div>
