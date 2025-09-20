@@ -44,12 +44,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'exercises' => $exercises_data,
         'file' => $_FILES['session_file'] ?? null
     ];
-    $amount = $_POST['session_amount'] ?? 0;
+    $amount = isset($_POST['session_amount']) ? (float) $_POST['session_amount'] : 0.0;
     $result = $treatmentController->saveSession($data);
     if ($result === true) {
-        $paymentController->recordSessionPayment($data['patient_id'], $data['episode_id'], $data['session_date'], $amount);
-        header("Location: start_treatment.php?episode_id=" . $episode_id."&patient_id=".$patient_id);
-        exit;
+        if ($amount > 0) {
+            try {
+                $paymentController->recordSessionPayment(
+                    $data['patient_id'],
+                    $data['episode_id'],
+                    $data['session_date'],
+                    $amount
+                );
+            } catch (Exception $e) {
+                $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
+            }
+        }
+
+        if ($msg === null) {
+            header("Location: start_treatment.php?episode_id=" . $episode_id."&patient_id=".$patient_id);
+            exit;
+        }
     } else {
         $msg = 'Error: ' . $result;
     }
