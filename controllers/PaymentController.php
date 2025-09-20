@@ -31,15 +31,11 @@ class PaymentController {
     }
 
     public function getPatientTotals($patientId) {
-        $pendingStmt = $this->pdo->prepare(
-            "SELECT SUM(amount) AS total FROM patient_payment_ledger WHERE patient_id = ? AND transaction_type = 'charge' AND status = 'pending'"
-        );
-        $pendingStmt->execute([$patientId]);
-        $pending = $pendingStmt->fetchColumn();
+        $summary = $this->computeLedgerSummary($patientId, false);
 
         return [
-            'pending' => $pending !== false ? (float) $pending : 0.0,
-            'credit' => $this->getCreditBalance($patientId),
+            'pending' => $summary['pending'],
+            'credit' => $summary['credit'],
         ];
     }
 
@@ -106,12 +102,16 @@ class PaymentController {
     }
 
     public function deletePayment($id) {
-        $stmt = $this->pdo->prepare("SELECT patient_id FROM patient_payment_ledger WHERE id = ?");
+        $stmt = $this->pdo->prepare("SELECT patient_id, transaction_type FROM patient_payment_ledger WHERE id = ?");
         $stmt->execute([$id]);
-        $patientId = $stmt->fetchColumn();
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$patientId) {
-            return;
+        if (!$payment) {
+            return false;
+        }
+
+        if ($payment['transaction_type'] !== 'payment') {
+            return false;
         }
 
         $this->pdo->beginTransaction();
@@ -119,7 +119,56 @@ class PaymentController {
             $delete = $this->pdo->prepare("DELETE FROM patient_payment_ledger WHERE id = ?");
             $delete->execute([$id]);
 
-            $this->recalculateLedgerForPatient((int) $patientId);
+            $this->recalculateLedgerForPatient((int) $payment['patient_id']);
+
+            $this->pdo->commit();
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+
+        return true;
+    }
+
+    public function updatePayment($id, array $data) {
+        $existing = $this->getPaymentById($id);
+
+        if (!$existing) {
+            throw new InvalidArgumentException('Payment record not found.');
+        }
+
+        if ($existing['transaction_type'] !== 'payment') {
+            throw new RuntimeException('Only credit entries can be updated.');
+        }
+
+        $patientId = (int) $existing['patient_id'];
+        if (isset($data['patient_id']) && (int) $data['patient_id'] !== $patientId) {
+            throw new RuntimeException('Patient mismatch for payment update.');
+        }
+
+        $transactionDate = $data['payment_date'] ?? $data['transaction_date'] ?? $existing['transaction_date'];
+        $amount = isset($data['amount']) ? (float) $data['amount'] : (float) $existing['amount'];
+        $notes = array_key_exists('notes', $data) ? $data['notes'] : $existing['notes'];
+
+        if ($amount <= 0) {
+            throw new InvalidArgumentException('Please provide a valid payment amount.');
+        }
+
+        if (!$transactionDate) {
+            throw new InvalidArgumentException('Please provide a valid transaction date.');
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $sql = "UPDATE patient_payment_ledger SET transaction_date = :transaction_date, amount = :amount, notes = :notes, updated_at = NOW() WHERE id = :id";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindValue(':transaction_date', $transactionDate);
+            $stmt->bindValue(':amount', $amount);
+            $this->bindNullable($stmt, ':notes', $notes, PDO::PARAM_STR);
+            $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+
+            $this->recalculateLedgerForPatient($patientId);
 
             $this->pdo->commit();
         } catch (Exception $e) {
@@ -129,35 +178,100 @@ class PaymentController {
     }
 
     private function recalculateLedgerForPatient($patientId) {
+        $summary = $this->computeLedgerSummary($patientId, true);
+        $this->upsertCreditBalance($patientId, $summary['credit']);
+    }
+
+    private function computeLedgerSummary($patientId, $updateStatuses = false) {
         $stmt = $this->pdo->prepare(
-            "SELECT id, transaction_type, amount FROM patient_payment_ledger WHERE patient_id = ? ORDER BY transaction_date ASC, id ASC"
+            "SELECT id, transaction_type, amount, status FROM patient_payment_ledger WHERE patient_id = ? ORDER BY transaction_date ASC, id ASC"
         );
         $stmt->execute([$patientId]);
         $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $credit = 0.0;
-        $updateStmt = $this->pdo->prepare(
-            "UPDATE patient_payment_ledger SET status = ?, updated_at = NOW() WHERE id = ?"
-        );
+        $outstanding = 0.0;
+        $pendingCharges = [];
+        $epsilon = 1e-6;
+        $updateStmt = null;
 
-        foreach ($entries as $entry) {
-            $amount = (float) $entry['amount'];
-            if ($entry['transaction_type'] === 'payment') {
-                $status = 'received';
-                $credit += $amount;
-            } else {
-                if ($credit + 1e-6 >= $amount) {
-                    $status = 'received';
-                    $credit -= $amount;
-                } else {
-                    $status = 'pending';
-                }
-            }
-
-            $updateStmt->execute([$status, $entry['id']]);
+        if ($updateStatuses) {
+            $updateStmt = $this->pdo->prepare(
+                "UPDATE patient_payment_ledger SET status = ?, updated_at = NOW() WHERE id = ?"
+            );
         }
 
-        $this->upsertCreditBalance($patientId, $credit);
+        foreach ($entries as $entry) {
+            $id = (int) $entry['id'];
+            $amount = (float) $entry['amount'];
+            $status = $entry['status'];
+
+            if ($entry['transaction_type'] === 'payment') {
+                $credit += $amount;
+
+                if ($updateStatuses && $status !== 'received') {
+                    $updateStmt->execute(['received', $id]);
+                }
+
+                $this->applyCreditToPendingCharges($pendingCharges, $credit, $outstanding, $updateStatuses, $updateStmt, $epsilon);
+            } else {
+                if ($credit + $epsilon >= $amount) {
+                    $credit -= $amount;
+                    if ($updateStatuses && $status !== 'received') {
+                        $updateStmt->execute(['received', $id]);
+                    }
+                } else {
+                    if ($credit > $epsilon) {
+                        $amount -= $credit;
+                        $credit = 0.0;
+                    }
+
+                    $outstanding += $amount;
+
+                    if ($updateStatuses && $status !== 'pending') {
+                        $updateStmt->execute(['pending', $id]);
+                        $status = 'pending';
+                    }
+
+                    $pendingCharges[] = [
+                        'id' => $id,
+                        'remaining' => $amount,
+                        'status' => $status,
+                    ];
+                }
+            }
+        }
+
+        return [
+            'credit' => max($credit, 0.0),
+            'pending' => max($outstanding, 0.0),
+        ];
+    }
+
+    private function applyCreditToPendingCharges(array &$pendingCharges, float &$credit, float &$outstanding, bool $updateStatuses, $updateStmt, float $epsilon) {
+        while ($credit > $epsilon && !empty($pendingCharges)) {
+            $current = &$pendingCharges[0];
+            $needed = $current['remaining'];
+
+            if ($credit + $epsilon >= $needed) {
+                $credit -= $needed;
+                $outstanding -= $needed;
+                if ($updateStatuses && $current['status'] !== 'received') {
+                    $updateStmt->execute(['received', $current['id']]);
+                }
+                array_shift($pendingCharges);
+            } else {
+                $current['remaining'] = $needed - $credit;
+                $outstanding -= $credit;
+                $credit = 0.0;
+            }
+
+            unset($current);
+        }
+
+        if ($outstanding < 0 && $outstanding > -$epsilon) {
+            $outstanding = 0.0;
+        }
     }
 
     private function getCreditBalance($patientId) {

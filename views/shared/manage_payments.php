@@ -25,30 +25,62 @@ if (!$patient) {
 $msg = null;
 $paymentDateValue = date('Y-m-d');
 $amountValue = '';
-$transactionTypeValue = $_POST['transaction_type'] ?? 'payment';
 $notesValue = $_POST['notes'] ?? '';
+$isEditing = false;
+$editingPaymentId = isset($_GET['edit']) ? (int) $_GET['edit'] : 0;
+
+if ($editingPaymentId > 0) {
+    $editingPayment = $paymentController->getPaymentById($editingPaymentId);
+    if ($editingPayment && (int) $editingPayment['patient_id'] === $patientId && $editingPayment['transaction_type'] === 'payment') {
+        $isEditing = true;
+        $paymentDateValue = $editingPayment['transaction_date'];
+        $amountValue = number_format((float) $editingPayment['amount'], 2, '.', '');
+        $notesValue = $editingPayment['notes'] ?? '';
+    } else {
+        $msg = 'Only credit entries can be edited.';
+        $editingPaymentId = 0;
+    }
+}
 
 // Handle delete
 if (isset($_GET['delete'])) {
-    $paymentController->deletePayment((int)$_GET['delete']);
-    header('Location: manage_payments.php?patient_id=' . $patientId);
-    exit;
+    if ($paymentController->deletePayment((int)$_GET['delete'])) {
+        header('Location: manage_payments.php?patient_id=' . $patientId);
+        exit;
+    }
+
+    $msg = 'Only credit entries can be deleted.';
 }
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $paymentDateValue = $_POST['payment_date'] ?? $paymentDateValue;
     $amountValue = $_POST['amount'] ?? $amountValue;
-    $transactionTypeValue = $_POST['transaction_type'] ?? $transactionTypeValue;
     $notesValue = $_POST['notes'] ?? $notesValue;
 
     $amount = isset($_POST['amount']) ? (float) $_POST['amount'] : 0;
     $transactionType = $_POST['transaction_type'] ?? 'payment';
+    $editingPaymentIdFromPost = isset($_POST['payment_id']) ? (int) $_POST['payment_id'] : 0;
 
     if ($amount <= 0) {
         $msg = 'Please enter a valid payment amount.';
-    } elseif (!in_array($transactionType, ['payment', 'charge'], true)) {
+    } elseif ($transactionType !== 'payment') {
         $msg = 'Invalid transaction type selected.';
+    } elseif ($editingPaymentIdFromPost > 0) {
+        try {
+            $paymentController->updatePayment($editingPaymentIdFromPost, [
+                'patient_id' => $patientId,
+                'payment_date' => $paymentDateValue ?: date('Y-m-d'),
+                'amount' => $amount,
+                'notes' => trim((string) ($_POST['notes'] ?? '')),
+            ]);
+            header('Location: manage_payments.php?patient_id=' . $patientId);
+            exit;
+        } catch (Exception $e) {
+            $msg = 'Unable to update payment: ' . $e->getMessage();
+            $isEditing = true;
+            $editingPaymentId = $editingPaymentIdFromPost;
+        }
     } else {
         $data = [
             'patient_id' => $patientId,
@@ -119,6 +151,10 @@ include '../../includes/header.php';
     </div>
 
     <form method="post" class="mb-4">
+      <input type="hidden" name="transaction_type" value="payment">
+      <?php if ($isEditing && $editingPaymentId > 0): ?>
+        <input type="hidden" name="payment_id" value="<?= $editingPaymentId ?>">
+      <?php endif; ?>
       <div class="row g-2 align-items-end">
         <div class="col-sm-4 col-md-3 col-lg-2">
           <label class="form-label">Date</label>
@@ -128,24 +164,20 @@ include '../../includes/header.php';
           <label class="form-label">Amount</label>
           <input type="number" step="0.01" min="0" name="amount" class="form-control" value="<?= htmlspecialchars($amountValue) ?>" placeholder="0.00" required>
         </div>
-        <div class="col-sm-6 col-md-4 col-lg-3">
-          <label class="form-label">Transaction Type</label>
-          <select name="transaction_type" class="form-select">
-            <option value="payment" <?= $transactionTypeValue === 'payment' ? 'selected' : '' ?>>Payment (Add Credit)</option>
-            <option value="charge" <?= $transactionTypeValue === 'charge' ? 'selected' : '' ?>>Charge (Use Credit)</option>
-          </select>
-        </div>
-        <div class="col-12 col-lg-3">
+        <div class="col-12 col-md-6 col-lg-5">
           <label class="form-label">Notes</label>
           <input type="text" name="notes" class="form-control" value="<?= htmlspecialchars($notesValue) ?>" placeholder="Optional description">
         </div>
-        <div class="col-sm-4 col-md-3 col-lg-2">
-          <button class="btn btn-primary w-100">Save Entry</button>
+        <div class="col-sm-4 col-md-3 col-lg-3">
+          <button class="btn btn-primary w-100"><?= $isEditing ? 'Update Credit' : 'Add Credit' ?></button>
+          <?php if ($isEditing): ?>
+            <a href="?patient_id=<?= $patientId ?>" class="btn btn-outline-secondary w-100 mt-2">Cancel</a>
+          <?php endif; ?>
         </div>
       </div>
       <div class="row mt-2">
         <div class="col-12">
-          <small class="text-muted">Charge entries automatically consume available credit. Payments add to the patient&rsquo;s credit balance.</small>
+          <small class="text-muted">Use this form to add or adjust credit entries for the patient. Treatment charges are generated automatically.</small>
         </div>
       </div>
     </form>
@@ -158,7 +190,6 @@ include '../../includes/header.php';
             <th>Type</th>
             <th>Amount</th>
             <th>Status</th>
-            <th>Episode</th>
             <th>Session</th>
             <th>Notes</th>
             <th>Action</th>
@@ -174,7 +205,6 @@ include '../../includes/header.php';
                 if ($pay['transaction_type'] === 'charge' && $pay['status'] === 'pending') {
                     $statusClass = 'bg-warning text-dark';
                 }
-                $episodeDisplay = $pay['episode_id'] ? 'Episode ' . $pay['episode_id'] : '-';
                 $sessionDisplay = $pay['session_reference'] ? $pay['session_reference'] : '-';
                 $noteDisplay = $pay['notes'] ? $pay['notes'] : '-';
               ?>
@@ -183,17 +213,21 @@ include '../../includes/header.php';
                 <td><span class="badge <?= $typeClass ?>"><?= htmlspecialchars($type) ?></span></td>
                 <td>R <?= number_format((float) $pay['amount'], 2) ?></td>
                 <td><span class="badge <?= $statusClass ?>"><?= ucfirst(htmlspecialchars($pay['status'])) ?></span></td>
-                <td><?= htmlspecialchars($episodeDisplay) ?></td>
                 <td><?= htmlspecialchars($sessionDisplay) ?></td>
                 <td><?= htmlspecialchars($noteDisplay) ?></td>
                 <td>
-                  <a href="?patient_id=<?= $patientId ?>&delete=<?= $pay['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Delete payment entry?');">Delete</a>
+                  <?php if ($pay['transaction_type'] === 'payment'): ?>
+                    <a href="?patient_id=<?= $patientId ?>&edit=<?= $pay['id'] ?>" class="btn btn-sm btn-secondary me-1">Edit</a>
+                    <a href="?patient_id=<?= $patientId ?>&delete=<?= $pay['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Delete credit entry?');">Delete</a>
+                  <?php else: ?>
+                    <span class="text-muted small">Not available</span>
+                  <?php endif; ?>
                 </td>
               </tr>
             <?php endforeach; ?>
           <?php else: ?>
             <tr>
-              <td colspan="8" class="text-center">No payment records available.</td>
+              <td colspan="7" class="text-center">No payment records available.</td>
             </tr>
           <?php endif; ?>
         </tbody>
