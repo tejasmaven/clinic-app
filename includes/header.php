@@ -21,7 +21,7 @@ $dashboardUrl = $roleDashboards[$currentRole] ?? BASE_URL . '/index.php';
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Physio Clinic System</title>
+    <title>Hiral Physiotherapy Clinic</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
@@ -30,7 +30,7 @@ $dashboardUrl = $roleDashboards[$currentRole] ?? BASE_URL . '/index.php';
 <body class="bg-body-tertiary">
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
     <div class="container-fluid px-3 px-lg-4">
-        <a class="navbar-brand fw-semibold" href="<?= BASE_URL ?>/index.php">Clinic System</a>
+        <a class="navbar-brand fw-semibold" href="<?= BASE_URL ?>/index.php">Hiral Physiotherapy Clinic</a>
         <?php if ($isLoggedIn): ?>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>

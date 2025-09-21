@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
        
         if ($role === 'Doctor') {
             
-            header('Location: ./dashboard/doctor_dashboard'); 
+            header('Location: ./dashboard/doctor_dashboard.php'); 
             exit;
         } elseif ($role === 'Receptionist') {
             header('Location: ./dashboard/receptionist_dashboard'); 
