@@ -99,12 +99,16 @@ include '../../includes/header.php';
                         </td>
                         <td class="text-end">
                             <div class="d-flex flex-wrap justify-content-end gap-2">
-                                <button class="btn btn-sm btn-info" onclick="openEditModal(
-                                    <?= (int) $ex['id'] ?>,
-                                    <?= json_encode($ex['name']) ?>,
-                                    <?= json_encode($ex['default_reps']) ?>,
-                                    <?= json_encode($ex['default_duration_minutes']) ?>
-                                )">Edit</button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-info"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editModal"
+                                    data-id="<?= (int) $ex['id'] ?>"
+                                    data-name="<?= htmlspecialchars($ex['name'], ENT_QUOTES, 'UTF-8') ?>"
+                                    data-default-reps="<?= htmlspecialchars((string) $ex['default_reps'], ENT_QUOTES, 'UTF-8') ?>"
+                                    data-default-duration="<?= htmlspecialchars((string) $ex['default_duration_minutes'], ENT_QUOTES, 'UTF-8') ?>"
+                                >Edit</button>
                                 <form method="POST" class="d-inline">
                                     <input type="hidden" name="action" value="toggle_exercise">
                                     <input type="hidden" name="id" value="<?= (int) $ex['id'] ?>">
@@ -172,14 +176,24 @@ include '../../includes/header.php';
 </div>
 
 <script>
-function openEditModal(id, name, default_reps, default_duration_minutes) {
-  document.getElementById('edit_id').value = id;
-  document.getElementById('edit_name').value = name;
-  document.getElementById('edit_default_reps').value = default_reps;
-  document.getElementById('edit_default_duration_minutes').value = default_duration_minutes;
-  const modal = new bootstrap.Modal(document.getElementById('editModal'));
-  modal.show();
-}
+document.addEventListener('DOMContentLoaded', function () {
+    var editExerciseModal = document.getElementById('editModal');
+    if (!editExerciseModal) {
+        return;
+    }
+
+    editExerciseModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        if (!button) {
+            return;
+        }
+
+        document.getElementById('edit_id').value = button.getAttribute('data-id') || '';
+        document.getElementById('edit_name').value = button.getAttribute('data-name') || '';
+        document.getElementById('edit_default_reps').value = button.getAttribute('data-default-reps') || '';
+        document.getElementById('edit_default_duration_minutes').value = button.getAttribute('data-default-duration') || '';
+    });
+});
 </script>
 
 <?php include '../../includes/footer.php'; ?>

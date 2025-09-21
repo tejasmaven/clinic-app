@@ -85,11 +85,15 @@ include '../../includes/header.php';
                         <td><?= htmlspecialchars($r['type']) ?></td>
                         <td class="text-end">
                             <div class="d-flex flex-wrap justify-content-end gap-2">
-                                <button class="btn btn-sm btn-info" onclick="openEditModal(
-                                    <?= (int) $r['id'] ?>,
-                                    <?= json_encode($r['name']) ?>,
-                                    <?= json_encode($r['type']) ?>
-                                )">Edit</button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-info"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editModal"
+                                    data-id="<?= (int) $r['id'] ?>"
+                                    data-name="<?= htmlspecialchars($r['name'], ENT_QUOTES, 'UTF-8') ?>"
+                                    data-type="<?= htmlspecialchars($r['type'], ENT_QUOTES, 'UTF-8') ?>"
+                                >Edit</button>
                                 <form method="POST" class="d-inline" onsubmit="return confirm('Delete this referral?')">
                                     <input type="hidden" name="action" value="delete_referral">
                                     <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
@@ -151,13 +155,23 @@ include '../../includes/header.php';
 </div>
 
 <script>
-function openEditModal(id, name, type) {
-  document.getElementById('edit_id').value = id;
-  document.getElementById('edit_name').value = name;
-  document.getElementById('edit_type').value = type;
-  const modal = new bootstrap.Modal(document.getElementById('editModal'));
-  modal.show();
-}
+document.addEventListener('DOMContentLoaded', function () {
+    var editReferralModal = document.getElementById('editModal');
+    if (!editReferralModal) {
+        return;
+    }
+
+    editReferralModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        if (!button) {
+            return;
+        }
+
+        document.getElementById('edit_id').value = button.getAttribute('data-id') || '';
+        document.getElementById('edit_name').value = button.getAttribute('data-name') || '';
+        document.getElementById('edit_type').value = button.getAttribute('data-type') || '';
+    });
+});
 </script>
 
 <?php include '../../includes/footer.php'; ?>
