@@ -114,12 +114,16 @@ include '../../includes/header.php';
                         <td class="text-end">
                             <div class="d-flex flex-wrap justify-content-end gap-2">
                                 <?php if (!isset($_GET['show_deleted'])): ?>
-                                <button class="btn btn-sm btn-info" onclick="openEditModal(
-                                    <?= (int) $u['id'] ?>,
-                                    <?= json_encode($u['name']) ?>,
-                                    <?= json_encode($u['email']) ?>,
-                                    <?= json_encode($u['role']) ?>
-                                )">Edit</button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-info"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editUserModal"
+                                    data-id="<?= (int) $u['id'] ?>"
+                                    data-name="<?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>"
+                                    data-email="<?= htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8') ?>"
+                                    data-role="<?= htmlspecialchars($u['role'], ENT_QUOTES, 'UTF-8') ?>"
+                                >Edit</button>
 
                                 <form method="POST" class="d-inline">
                                     <input type="hidden" name="action" value="toggle_user_status">
@@ -199,14 +203,24 @@ include '../../includes/header.php';
 </div>
 
 <script>
-function openEditModal(id, name, email, role) {
-    document.getElementById('edit_id').value = id;
-    document.getElementById('edit_name').value = name;
-    document.getElementById('edit_email').value = email;
-    document.getElementById('edit_role').value = role;
-    const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
-    modal.show();
-}
+document.addEventListener('DOMContentLoaded', function () {
+    var editUserModal = document.getElementById('editUserModal');
+    if (!editUserModal) {
+        return;
+    }
+
+    editUserModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        if (!button) {
+            return;
+        }
+
+        document.getElementById('edit_id').value = button.getAttribute('data-id') || '';
+        document.getElementById('edit_name').value = button.getAttribute('data-name') || '';
+        document.getElementById('edit_email').value = button.getAttribute('data-email') || '';
+        document.getElementById('edit_role').value = button.getAttribute('data-role') || '';
+    });
+});
 </script>
 
 <?php include '../../includes/footer.php'; ?>
