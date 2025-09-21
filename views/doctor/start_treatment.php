@@ -248,10 +248,6 @@ include '../../includes/header.php';
 
     container.appendChild(row);
     updateExerciseOptions();
-    row.querySelector('.exercise-select').addEventListener('change', function(){
-      handleExerciseChange(this);
-      updateExerciseOptions();
-    });
   }
 
   function updateExerciseOptions() {
@@ -259,6 +255,7 @@ include '../../includes/header.php';
     const selectedValues = Array.from(selects).map(s => s.value).filter(v => v && v !== 'other');
     selects.forEach(sel => {
       const currentValue = sel.value;
+      $(sel).off('change.exercise');
       if ($(sel).data('select2')) {
         $(sel).select2('destroy');
       }
@@ -269,9 +266,11 @@ include '../../includes/header.php';
         }).join('') + '<option value="other">Others</option>';
       sel.value = currentValue;
       $(sel).select2({width: '100%'});
-      if(sel.value === 'other'){
-        handleExerciseChange(sel);
-      }
+      $(sel).on('change.exercise', function(){
+        handleExerciseChange(this);
+        updateExerciseOptions();
+      });
+      handleExerciseChange(sel);
     });
   }
 
