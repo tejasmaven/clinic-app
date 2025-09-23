@@ -58,6 +58,7 @@ include '../../includes/header.php';
             <th scope="col">DOB</th>
             <th scope="col">Contact</th>
             <th scope="col">Referral</th>
+            <th scope="col">Files</th>
             <th scope="col" class="text-nowrap">Actions</th>
           </tr>
         </thead>
@@ -70,19 +71,21 @@ include '../../includes/header.php';
                 <td><?= htmlspecialchars($p['date_of_birth']) ?></td>
                 <td><?= htmlspecialchars($p['contact_number']) ?></td>
                 <td><?= htmlspecialchars($p['referral_source']) ?></td>
+                <td>
+                  <a href="../shared/manage_patients_files.php?patient_id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-outline-warning">Files</a>
+                </td>
                 <td class="text-nowrap">
                   <div class="d-flex flex-wrap gap-1">
                     <a href="select_or_create_episode.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-primary">Start Treatment</a>
                     <a href="patient_form.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-primary">Edit</a>
                     <a href="../shared/manage_payments.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-secondary">Payments</a>
-                    <a href="../shared/manage_patients_files.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-warning">Files</a>
                   </div>
                 </td>
               </tr>
             <?php endforeach; ?>
           <?php else: ?>
             <tr>
-              <td colspan="6" class="text-center text-muted py-4">No patients found for the current search.</td>
+              <td colspan="7" class="text-center text-muted py-4">No patients found for the current search.</td>
             </tr>
           <?php endif; ?>
         </tbody>
