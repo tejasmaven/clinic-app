@@ -42,6 +42,7 @@ foreach ($therapists as $therapist) {
     $therapistMap[(int) $therapist['id']] = $therapist['name'];
 }
 $previousExercises = $treatmentController->getPreviousSessionExercises($patient_id, $episode_id);
+$latestSessionData = $treatmentController->getLatestSessionWithDetails($patient_id, $episode_id);
 
 $groupedSessions = [];
 foreach ($previousExercises as $ex) {
@@ -145,6 +146,9 @@ $remarksValue = $_POST['remarks'] ?? '';
 $progressNotesValue = $_POST['progress_notes'] ?? '';
 $adviseValue = $_POST['advise'] ?? '';
 $additionalTreatmentNotesValue = $_POST['additional_treatment_notes'] ?? '';
+$copyLastSessionValue = (isset($_POST['copy_last_session']) && $_POST['copy_last_session'] === 'yes' && $latestSessionData)
+    ? 'yes'
+    : 'no';
 
 include '../../includes/header.php';
 ?>
@@ -228,6 +232,25 @@ include '../../includes/header.php';
         <input type="hidden" name="episode_id" value="<?= $episode_id ?>">
 
         <div class="row g-3">
+          <div class="col-12">
+            <div class="fw-bold mb-2">Copy last session data of this patient?</div>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_yes" value="yes" <?= $copyLastSessionValue === 'yes' ? 'checked' : '' ?> <?= $latestSessionData ? '' : 'disabled' ?>>
+                <label class="form-check-label" for="copy_last_session_yes">Yes</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_no" value="no" <?= $copyLastSessionValue !== 'yes' ? 'checked' : '' ?>>
+                <label class="form-check-label" for="copy_last_session_no">No</label>
+              </div>
+            </div>
+            <?php if (!$latestSessionData): ?>
+              <small class="text-muted">No previous session data available to copy.</small>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <div class="row g-3">
           <div class="col-12 col-md-4">
             <label class="form-label" for="session_date">Session Date</label>
             <input type="date" name="session_date" id="session_date" class="form-control" value="<?= htmlspecialchars($sessionDateValue) ?>" required>
@@ -308,12 +331,15 @@ include '../../includes/header.php';
 
 <script>
   const exerciseMaster = <?= json_encode($exercise_master) ?>;
+  const latestSessionData = <?= json_encode($latestSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const primaryTherapistSelect = document.getElementById('primary_therapist_id');
   const secondaryTherapistSelect = document.getElementById('secondary_therapist_id');
+  const copyLastSessionInputs = document.querySelectorAll('input[name="copy_last_session"]');
 
   document.addEventListener('DOMContentLoaded', () => {
     addExercise();
     syncTherapistSelections();
+    setupCopyLastSession();
   });
 
   if (primaryTherapistSelect && secondaryTherapistSelect) {
@@ -324,6 +350,175 @@ include '../../includes/header.php';
       }
       syncTherapistSelections();
     });
+  }
+
+  function setupCopyLastSession() {
+    if (!copyLastSessionInputs.length) {
+      return;
+    }
+
+    copyLastSessionInputs.forEach(input => {
+      input.addEventListener('change', event => {
+        if (event.target.value === 'yes' && event.target.checked) {
+          populateFromLastSession();
+        } else if (event.target.value === 'no' && event.target.checked) {
+          clearCopiedSessionData();
+        }
+      });
+    });
+  }
+
+  function resetExerciseContainer() {
+    const container = document.getElementById('exerciseContainer');
+    if (!container) {
+      return null;
+    }
+    $(container).find('.exercise-select').each(function () {
+      if ($(this).data('select2')) {
+        $(this).select2('destroy');
+      }
+    });
+    container.innerHTML = '';
+    return container;
+  }
+
+  function populateFromLastSession() {
+    if (!latestSessionData) {
+      return;
+    }
+
+    const amountInput = document.getElementById('session_amount');
+    if (amountInput) {
+      amountInput.value = latestSessionData.amount ?? '';
+    }
+
+    if (primaryTherapistSelect) {
+      primaryTherapistSelect.value = latestSessionData.primary_therapist_id
+        ? String(latestSessionData.primary_therapist_id)
+        : '';
+    }
+    if (secondaryTherapistSelect) {
+      secondaryTherapistSelect.value = latestSessionData.secondary_therapist_id
+        ? String(latestSessionData.secondary_therapist_id)
+        : '';
+    }
+    syncTherapistSelections();
+
+    const remarksInput = document.getElementById('remarks');
+    if (remarksInput) {
+      remarksInput.value = latestSessionData.remarks ?? '';
+    }
+    const progressNotesInput = document.getElementById('progress_notes');
+    if (progressNotesInput) {
+      progressNotesInput.value = latestSessionData.progress_notes ?? '';
+    }
+    const adviseInput = document.getElementById('advise');
+    if (adviseInput) {
+      adviseInput.value = latestSessionData.advise ?? '';
+    }
+    const additionalNotesInput = document.getElementById('additional_treatment_notes');
+    if (additionalNotesInput) {
+      additionalNotesInput.value = latestSessionData.additional_treatment_notes ?? '';
+    }
+
+    populateExercises(latestSessionData.exercises || []);
+  }
+
+  function populateExercises(exercises) {
+    const container = resetExerciseContainer();
+    if (!container) {
+      return;
+    }
+
+    if (!exercises.length) {
+      addExercise();
+      return;
+    }
+
+    exercises.forEach(exercise => {
+      addExercise();
+      const row = container.lastElementChild;
+      if (!row) {
+        return;
+      }
+
+      const select = row.querySelector('.exercise-select');
+      const repsInput = row.querySelector('.reps-input');
+      const durationInput = row.querySelector('.duration-input');
+      const notesInput = row.querySelector('input[name="exercises_notes[]"]');
+      const otherNameInput = row.querySelector('.other-name');
+
+      const exerciseId = exercise.exercise_id !== null && exercise.exercise_id !== undefined
+        ? String(exercise.exercise_id)
+        : '';
+      const exerciseName = exercise.name || exercise.exercise_name || '';
+
+      if (select) {
+        const hasOption = Array.from(select.options).some(opt => opt.value === exerciseId);
+        if (exerciseId && hasOption) {
+          select.value = exerciseId;
+        } else if (exerciseName) {
+          select.value = 'other';
+          if (otherNameInput) {
+            otherNameInput.value = exerciseName;
+          }
+        } else {
+          select.value = '';
+        }
+        $(select).trigger('change');
+      }
+
+      if (repsInput) {
+        repsInput.value = exercise.reps ?? '';
+      }
+      if (durationInput) {
+        durationInput.value = exercise.duration_minutes ?? '';
+      }
+      if (notesInput) {
+        notesInput.value = exercise.notes ?? '';
+      }
+
+      if (select && select.value !== 'other' && otherNameInput) {
+        otherNameInput.value = '';
+      }
+    });
+    updateExerciseOptions();
+  }
+
+  function clearCopiedSessionData() {
+    const amountInput = document.getElementById('session_amount');
+    if (amountInput) {
+      amountInput.value = '';
+    }
+    if (primaryTherapistSelect) {
+      primaryTherapistSelect.value = '';
+    }
+    if (secondaryTherapistSelect) {
+      secondaryTherapistSelect.value = '';
+    }
+    syncTherapistSelections();
+
+    const remarksInput = document.getElementById('remarks');
+    if (remarksInput) {
+      remarksInput.value = '';
+    }
+    const progressNotesInput = document.getElementById('progress_notes');
+    if (progressNotesInput) {
+      progressNotesInput.value = '';
+    }
+    const adviseInput = document.getElementById('advise');
+    if (adviseInput) {
+      adviseInput.value = '';
+    }
+    const additionalNotesInput = document.getElementById('additional_treatment_notes');
+    if (additionalNotesInput) {
+      additionalNotesInput.value = '';
+    }
+
+    const container = resetExerciseContainer();
+    if (container) {
+      addExercise();
+    }
   }
 
   function addExercise() {

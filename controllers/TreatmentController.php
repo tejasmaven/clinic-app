@@ -102,6 +102,79 @@ class TreatmentController {
         }
     }
 
+    public function getLatestSessionWithDetails($patient_id, $episode_id) {
+        $stmt = $this->pdo->prepare("
+            SELECT
+                ts.id,
+                ts.session_date,
+                ts.remarks,
+                ts.progress_notes,
+                ts.advise,
+                ts.additional_treatment_notes,
+                ts.primary_therapist_id,
+                ts.secondary_therapist_id
+            FROM treatment_sessions ts
+            WHERE ts.patient_id = ? AND ts.episode_id = ?
+            ORDER BY ts.session_date DESC, ts.id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$patient_id, $episode_id]);
+        $session = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$session) {
+            return null;
+        }
+
+        $amountStmt = $this->pdo->prepare("
+            SELECT amount
+            FROM patient_payment_ledger
+            WHERE patient_id = ?
+              AND episode_id = ?
+              AND transaction_type = 'charge'
+              AND session_reference = ?
+            ORDER BY transaction_date DESC, id DESC
+            LIMIT 1
+        ");
+        $amountStmt->execute([$patient_id, $episode_id, $session['session_date']]);
+        $amount = $amountStmt->fetchColumn();
+
+        $exerciseStmt = $this->pdo->prepare("
+            SELECT
+                te.exercise_id,
+                te.exercise_name,
+                te.reps,
+                te.duration_minutes,
+                te.notes,
+                em.name AS master_name
+            FROM treatment_exercises te
+            LEFT JOIN exercises_master em ON te.exercise_id = em.id
+            WHERE te.session_id = ?
+            ORDER BY te.id ASC
+        ");
+        $exerciseStmt->execute([$session['id']]);
+        $exerciseRows = $exerciseStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $session['primary_therapist_id'] = $session['primary_therapist_id'] !== null
+            ? (int) $session['primary_therapist_id']
+            : null;
+        $session['secondary_therapist_id'] = $session['secondary_therapist_id'] !== null
+            ? (int) $session['secondary_therapist_id']
+            : null;
+        $session['amount'] = $amount !== false ? (string) $amount : null;
+        $session['exercises'] = array_map(function ($row) {
+            return [
+                'exercise_id' => $row['exercise_id'] !== null ? (int) $row['exercise_id'] : null,
+                'name' => $row['master_name'] ?? $row['exercise_name'] ?? '',
+                'exercise_name' => $row['exercise_name'] ?? '',
+                'reps' => $row['reps'],
+                'duration_minutes' => $row['duration_minutes'],
+                'notes' => $row['notes'],
+            ];
+        }, $exerciseRows);
+
+        return $session;
+    }
+
     public function getPreviousSessionExercises($patient_id, $episode_id) {
         $stmt = $this->pdo->prepare("
             SELECT ts.id AS session_id,
