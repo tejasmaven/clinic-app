@@ -28,6 +28,19 @@ $patient_name = trim($patientData['first_name'] . ' ' . $patientData['last_name'
 
 $exercise_master = $pdo->query("SELECT id, name FROM exercises_master WHERE is_active = 1 ORDER BY name")
     ->fetchAll(PDO::FETCH_ASSOC);
+$therapistStmt = $pdo->prepare("
+    SELECT id, name
+    FROM users
+    WHERE role = 'Doctor' AND is_active = 1 AND is_deleted = 0
+    ORDER BY name
+");
+$therapistStmt->execute();
+$therapists = $therapistStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$therapistMap = [];
+foreach ($therapists as $therapist) {
+    $therapistMap[(int) $therapist['id']] = $therapist['name'];
+}
 $previousExercises = $treatmentController->getPreviousSessionExercises($patient_id, $episode_id);
 
 $groupedSessions = [];
@@ -39,6 +52,9 @@ foreach ($previousExercises as $ex) {
             'remarks' => $ex['remarks'],
             'progress_notes' => $ex['progress_notes'],
             'advise' => $ex['advise'],
+            'additional_treatment_notes' => $ex['additional_treatment_notes'] ?? null,
+            'primary_therapist_name' => $ex['primary_therapist_name'] ?? null,
+            'secondary_therapist_name' => $ex['secondary_therapist_name'] ?? null,
             'exercises' => [],
         ];
     }
@@ -51,51 +67,84 @@ foreach ($previousExercises as $ex) {
 $msg = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $exercises_data = [
-        'exercise_id' => $_POST['exercises_exercise_id'] ?? [],
-        'reps' => $_POST['exercises_reps'] ?? [],
-        'duration_minutes' => $_POST['exercises_duration_minutes'] ?? [],
-        'notes' => $_POST['exercises_notes'] ?? [],
-        'new_name' => $_POST['new_exercise_name'] ?? [],
-    ];
+    $primaryTherapistId = isset($_POST['primary_therapist_id']) ? (int) $_POST['primary_therapist_id'] : 0;
+    $secondaryTherapistId = isset($_POST['secondary_therapist_id']) && $_POST['secondary_therapist_id'] !== ''
+        ? (int) $_POST['secondary_therapist_id']
+        : null;
 
-    $data = [
-        'patient_id' => $_POST['patient_id'] ?? $patient_id,
-        'episode_id' => $_POST['episode_id'] ?? $episode_id,
-        'session_date' => $_POST['session_date'] ?? date('Y-m-d'),
-        'doctor_id' => $_SESSION['user_id'],
-        'remarks' => $_POST['remarks'] ?? '',
-        'progress_notes' => $_POST['progress_notes'] ?? '',
-        'advise' => $_POST['advise'] ?? '',
-        'exercises' => $exercises_data,
-        'file' => $_FILES['session_file'] ?? null,
-    ];
-
-    $amount = isset($_POST['session_amount']) ? (float) $_POST['session_amount'] : 0.0;
-    $result = $treatmentController->saveSession($data);
-
-    if ($result === true) {
-        if ($amount > 0) {
-            try {
-                $paymentController->recordSessionPayment(
-                    $data['patient_id'],
-                    $data['episode_id'],
-                    $data['session_date'],
-                    $amount
-                );
-            } catch (Exception $e) {
-                $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
-            }
-        }
-
-        if ($msg === null) {
-            header('Location: start_treatment.php?episode_id=' . $episode_id . '&patient_id=' . $patient_id);
-            exit;
-        }
+    if ($primaryTherapistId <= 0 || !isset($therapistMap[$primaryTherapistId])) {
+        $msg = 'Please select a valid primary therapist.';
+    } elseif ($secondaryTherapistId !== null && !isset($therapistMap[$secondaryTherapistId])) {
+        $msg = 'Please select a valid secondary therapist.';
+    } elseif ($secondaryTherapistId !== null && $secondaryTherapistId === $primaryTherapistId) {
+        $msg = 'Primary and secondary therapist cannot be the same.';
     } else {
-        $msg = 'Error: ' . $result;
+        $additionalNotes = trim($_POST['additional_treatment_notes'] ?? '');
+
+        $exercises_data = [
+            'exercise_id' => $_POST['exercises_exercise_id'] ?? [],
+            'reps' => $_POST['exercises_reps'] ?? [],
+            'duration_minutes' => $_POST['exercises_duration_minutes'] ?? [],
+            'notes' => $_POST['exercises_notes'] ?? [],
+            'new_name' => $_POST['new_exercise_name'] ?? [],
+        ];
+
+        $data = [
+            'patient_id' => $_POST['patient_id'] ?? $patient_id,
+            'episode_id' => $_POST['episode_id'] ?? $episode_id,
+            'session_date' => $_POST['session_date'] ?? date('Y-m-d'),
+            'doctor_id' => $_SESSION['user_id'],
+            'primary_therapist_id' => $primaryTherapistId,
+            'secondary_therapist_id' => $secondaryTherapistId,
+            'remarks' => $_POST['remarks'] ?? '',
+            'progress_notes' => $_POST['progress_notes'] ?? '',
+            'advise' => $_POST['advise'] ?? '',
+            'additional_treatment_notes' => $additionalNotes,
+            'exercises' => $exercises_data,
+            'file' => $_FILES['session_file'] ?? null,
+        ];
+
+        $amount = isset($_POST['session_amount']) ? (float) $_POST['session_amount'] : 0.0;
+        $result = $treatmentController->saveSession($data);
+
+        if ($result === true) {
+            if ($amount > 0) {
+                try {
+                    $paymentController->recordSessionPayment(
+                        $data['patient_id'],
+                        $data['episode_id'],
+                        $data['session_date'],
+                        $amount
+                    );
+                } catch (Exception $e) {
+                    $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
+                }
+            }
+
+            if ($msg === null) {
+                header('Location: start_treatment.php?episode_id=' . $episode_id . '&patient_id=' . $patient_id);
+                exit;
+            }
+        } else {
+            $msg = 'Error: ' . $result;
+        }
     }
 }
+
+$selectedPrimaryTherapistId = '';
+if (isset($_POST['primary_therapist_id'])) {
+    $selectedPrimaryTherapistId = (string) $_POST['primary_therapist_id'];
+} elseif (isset($_SESSION['user_id']) && isset($therapistMap[(int) $_SESSION['user_id']])) {
+    $selectedPrimaryTherapistId = (string) $_SESSION['user_id'];
+}
+
+$selectedSecondaryTherapistId = isset($_POST['secondary_therapist_id']) ? (string) $_POST['secondary_therapist_id'] : '';
+$sessionDateValue = $_POST['session_date'] ?? date('Y-m-d');
+$sessionAmountValue = $_POST['session_amount'] ?? '';
+$remarksValue = $_POST['remarks'] ?? '';
+$progressNotesValue = $_POST['progress_notes'] ?? '';
+$adviseValue = $_POST['advise'] ?? '';
+$additionalTreatmentNotesValue = $_POST['additional_treatment_notes'] ?? '';
 
 include '../../includes/header.php';
 ?>
@@ -129,9 +178,18 @@ include '../../includes/header.php';
               </h2>
               <div id="collapse<?= $idx ?>" class="accordion-collapse collapse" aria-labelledby="heading<?= $idx ?>" data-bs-parent="#previousExercisesAccordion">
                 <div class="accordion-body">
+                  <?php if (!empty($session['primary_therapist_name'])): ?>
+                    <p class="mb-2"><strong>Primary Therapist:</strong> <?= htmlspecialchars($session['primary_therapist_name']) ?></p>
+                  <?php endif; ?>
+                  <?php if (!empty($session['secondary_therapist_name'])): ?>
+                    <p class="mb-2"><strong>Secondary Therapist:</strong> <?= htmlspecialchars($session['secondary_therapist_name']) ?></p>
+                  <?php endif; ?>
                   <p class="mb-2"><strong>Doctor's Remarks:</strong> <?= htmlspecialchars($session['remarks']) ?></p>
                   <p class="mb-2"><strong>Progress Notes:</strong> <?= htmlspecialchars($session['progress_notes']) ?></p>
-                  <p class="mb-3"><strong>Advise:</strong> <?= htmlspecialchars($session['advise']) ?></p>
+                  <p class="mb-2"><strong>Advise:</strong> <?= htmlspecialchars($session['advise']) ?></p>
+                  <?php if (!empty($session['additional_treatment_notes'])): ?>
+                    <p class="mb-3"><strong>Additional Treatment Notes:</strong> <?= htmlspecialchars($session['additional_treatment_notes']) ?></p>
+                  <?php endif; ?>
                   <?php if (!empty($session['exercises'])): ?>
                     <div class="table-responsive">
                       <table class="table table-sm table-hover align-middle mb-0">
@@ -172,15 +230,44 @@ include '../../includes/header.php';
         <div class="row g-3">
           <div class="col-12 col-md-4">
             <label class="form-label" for="session_date">Session Date</label>
-            <input type="date" name="session_date" id="session_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
+            <input type="date" name="session_date" id="session_date" class="form-control" value="<?= htmlspecialchars($sessionDateValue) ?>" required>
           </div>
           <div class="col-12 col-md-4">
             <label class="form-label" for="session_amount">Session Amount</label>
-            <input type="number" step="0.01" min="0" name="session_amount" id="session_amount" class="form-control" required>
+            <input type="number" step="0.01" min="0" name="session_amount" id="session_amount" class="form-control" value="<?= htmlspecialchars($sessionAmountValue) ?>" required>
           </div>
           <div class="col-12 col-md-4">
             <label class="form-label" for="session_file">Upload File (optional)</label>
             <input type="file" name="session_file" id="session_file" class="form-control">
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="primary_therapist_id">Primary Therapist</label>
+            <select name="primary_therapist_id" id="primary_therapist_id" class="form-select" required>
+              <option value="">Select Primary Therapist</option>
+              <?php if (empty($therapists)): ?>
+                <option value="" disabled>No active doctors available</option>
+              <?php else: ?>
+                <?php foreach ($therapists as $therapist): ?>
+                  <option value="<?= (int) $therapist['id'] ?>" <?= ((string) $therapist['id'] === $selectedPrimaryTherapistId) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($therapist['name']) ?>
+                  </option>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label" for="secondary_therapist_id">Secondary Therapist</label>
+            <select name="secondary_therapist_id" id="secondary_therapist_id" class="form-select">
+              <option value="">Select Secondary Therapist (optional)</option>
+              <?php foreach ($therapists as $therapist): ?>
+                <option value="<?= (int) $therapist['id'] ?>" <?= ((string) $therapist['id'] === $selectedSecondaryTherapistId) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($therapist['name']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
           </div>
         </div>
 
@@ -195,15 +282,19 @@ include '../../includes/header.php';
         <div class="row g-3">
           <div class="col-12">
             <label class="form-label" for="remarks">Doctor's Remarks</label>
-            <textarea name="remarks" id="remarks" class="form-control" rows="3" required></textarea>
+            <textarea name="remarks" id="remarks" class="form-control" rows="3"><?= htmlspecialchars($remarksValue) ?></textarea>
           </div>
           <div class="col-12">
             <label class="form-label" for="progress_notes">Progress Notes</label>
-            <textarea name="progress_notes" id="progress_notes" class="form-control" rows="2"></textarea>
+            <textarea name="progress_notes" id="progress_notes" class="form-control" rows="2"><?= htmlspecialchars($progressNotesValue) ?></textarea>
           </div>
           <div class="col-12">
             <label class="form-label" for="advise">Advise</label>
-            <textarea name="advise" id="advise" class="form-control" rows="2"></textarea>
+            <textarea name="advise" id="advise" class="form-control" rows="2"><?= htmlspecialchars($adviseValue) ?></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="additional_treatment_notes">Additional Treatment Notes</label>
+            <textarea name="additional_treatment_notes" id="additional_treatment_notes" class="form-control" rows="2"><?= htmlspecialchars($additionalTreatmentNotesValue) ?></textarea>
           </div>
         </div>
 
@@ -217,10 +308,23 @@ include '../../includes/header.php';
 
 <script>
   const exerciseMaster = <?= json_encode($exercise_master) ?>;
+  const primaryTherapistSelect = document.getElementById('primary_therapist_id');
+  const secondaryTherapistSelect = document.getElementById('secondary_therapist_id');
 
   document.addEventListener('DOMContentLoaded', () => {
     addExercise();
+    syncTherapistSelections();
   });
+
+  if (primaryTherapistSelect && secondaryTherapistSelect) {
+    primaryTherapistSelect.addEventListener('change', syncTherapistSelections);
+    secondaryTherapistSelect.addEventListener('change', () => {
+      if (secondaryTherapistSelect.value && secondaryTherapistSelect.value === primaryTherapistSelect.value) {
+        secondaryTherapistSelect.value = '';
+      }
+      syncTherapistSelections();
+    });
+  }
 
   function addExercise() {
     const container = document.getElementById('exerciseContainer');
@@ -300,6 +404,23 @@ include '../../includes/header.php';
   function removeRow(btn) {
     btn.closest('.exercise-row').remove();
     updateExerciseOptions();
+  }
+
+  function syncTherapistSelections() {
+    if (!primaryTherapistSelect || !secondaryTherapistSelect) {
+      return;
+    }
+    const primaryValue = primaryTherapistSelect.value;
+    Array.from(secondaryTherapistSelect.options).forEach(option => {
+      if (!option.value) {
+        option.disabled = false;
+        return;
+      }
+      option.disabled = option.value === primaryValue;
+    });
+    if (secondaryTherapistSelect.value && secondaryTherapistSelect.value === primaryValue) {
+      secondaryTherapistSelect.value = '';
+    }
   }
 </script>
 

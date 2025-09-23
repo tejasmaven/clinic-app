@@ -14,17 +14,22 @@ class TreatmentController {
             // Insert treatment session
             $stmt = $this->pdo->prepare("
                 INSERT INTO treatment_sessions
-                (patient_id, episode_id, session_date, doctor_id, remarks, progress_notes, advise)
-                VALUES (:patient_id, :episode_id, :session_date, :doctor_id, :remarks, :progress_notes, :advise)
+                (patient_id, episode_id, session_date, doctor_id, primary_therapist_id, secondary_therapist_id, remarks, progress_notes, advise, additional_treatment_notes)
+                VALUES (:patient_id, :episode_id, :session_date, :doctor_id, :primary_therapist_id, :secondary_therapist_id, :remarks, :progress_notes, :advise, :additional_treatment_notes)
             ");
             $stmt->execute([
                 'patient_id' => $data['patient_id'],
                 'episode_id' => $data['episode_id'],
                 'session_date' => $data['session_date'],
                 'doctor_id' => $data['doctor_id'],
+                'primary_therapist_id' => $data['primary_therapist_id'],
+                'secondary_therapist_id' => $data['secondary_therapist_id'],
                 'remarks' => $data['remarks'] ?? null,
                 'progress_notes' => $data['progress_notes'] ?? null,
-                'advise' => $data['advise'] ?? null
+                'advise' => $data['advise'] ?? null,
+                'additional_treatment_notes' => isset($data['additional_treatment_notes']) && $data['additional_treatment_notes'] !== ''
+                    ? $data['additional_treatment_notes']
+                    : null
             ]);
 
             $session_id = $this->pdo->lastInsertId();
@@ -104,12 +109,19 @@ class TreatmentController {
                    ts.remarks,
                    ts.progress_notes,
                    ts.advise,
+                   ts.additional_treatment_notes,
+                   ts.primary_therapist_id,
+                   ts.secondary_therapist_id,
+                   primary_user.name AS primary_therapist_name,
+                   secondary_user.name AS secondary_therapist_name,
                    te.exercise_id,
                    te.reps,
                    te.duration_minutes,
                    te.notes,
                    em.name
             FROM treatment_sessions ts
+            LEFT JOIN users primary_user ON ts.primary_therapist_id = primary_user.id
+            LEFT JOIN users secondary_user ON ts.secondary_therapist_id = secondary_user.id
             LEFT JOIN treatment_exercises te ON ts.id = te.session_id
             LEFT JOIN exercises_master em ON te.exercise_id = em.id
             WHERE ts.patient_id = ? AND ts.episode_id = ?
