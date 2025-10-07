@@ -69,6 +69,72 @@ class TreatmentController {
 
             }
 
+            // Insert machines
+            $machineIds = $data['machines']['machine_id'] ?? [];
+            $machineDurations = $data['machines']['duration_minutes'] ?? [];
+            $machineNotes = $data['machines']['notes'] ?? [];
+            $machineNames = $data['machines']['new_name'] ?? [];
+
+            $machineCount = is_array($machineIds) ? count($machineIds) : 0;
+
+            $machineInsertStmt = $this->pdo->prepare("
+                INSERT INTO treatment_machines
+                (session_id, machine_id, machine_name, duration_minutes, notes)
+                VALUES (:session_id, :machine_id, :machine_name, :duration_minutes, :notes)
+            ");
+
+            $machineNameLookupStmt = $this->pdo->prepare("SELECT name FROM machines WHERE id = ?");
+            $machineFindByNameStmt = $this->pdo->prepare("SELECT id FROM machines WHERE name = ? LIMIT 1");
+            $machineCreateStmt = $this->pdo->prepare("INSERT INTO machines (name, default_duration_minutes) VALUES (?, ?)");
+
+            for ($i = 0; $i < $machineCount; $i++) {
+                $rawMachineId = $machineIds[$i] ?? '';
+                $machineDuration = $machineDurations[$i] ?? null;
+                $machineNote = $machineNotes[$i] ?? null;
+                $customName = isset($machineNames[$i]) ? trim((string) $machineNames[$i]) : '';
+
+                if ($rawMachineId === '' && $customName === '') {
+                    continue;
+                }
+
+                $machineId = null;
+                $machineName = '';
+
+                if ($rawMachineId === 'other') {
+                    if ($customName === '') {
+                        throw new InvalidArgumentException('Machine name is required when selecting Other.');
+                    }
+
+                    $machineFindByNameStmt->execute([$customName]);
+                    $existing = $machineFindByNameStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($existing) {
+                        $machineId = (int) $existing['id'];
+                    } else {
+                        $defaultDuration = is_numeric($machineDuration) ? (int) $machineDuration : 0;
+                        $machineCreateStmt->execute([$customName, $defaultDuration]);
+                        $machineId = (int) $this->pdo->lastInsertId();
+                    }
+                    $machineName = $customName;
+                } elseif ($rawMachineId !== '') {
+                    $machineId = (int) $rawMachineId;
+                    $machineNameLookupStmt->execute([$machineId]);
+                    $foundName = $machineNameLookupStmt->fetchColumn();
+                    $machineName = $foundName !== false ? (string) $foundName : '';
+                }
+
+                if ($machineId === null) {
+                    continue;
+                }
+
+                $machineInsertStmt->execute([
+                    'session_id' => $session_id,
+                    'machine_id' => $machineId,
+                    'machine_name' => $machineName,
+                    'duration_minutes' => $machineDuration !== '' ? $machineDuration : null,
+                    'notes' => $machineNote,
+                ]);
+            }
+
             // Upload file if provided
             if (!empty($data['file']) && $data['file']['error'] === UPLOAD_ERR_OK) {
                 $uploadDir = dirname(__DIR__) . '/uploads/patient_docs/' . $data['patient_id'] . '/';
@@ -143,6 +209,9 @@ class TreatmentController {
         $stmtExercises = $this->pdo->prepare("DELETE FROM treatment_exercises WHERE session_id = ?");
         $stmtExercises->execute([$sessionId]);
 
+        $stmtMachines = $this->pdo->prepare("DELETE FROM treatment_machines WHERE session_id = ?");
+        $stmtMachines->execute([$sessionId]);
+
         $stmtSession = $this->pdo->prepare("DELETE FROM treatment_sessions WHERE id = ?");
         $stmtSession->execute([$sessionId]);
 
@@ -206,6 +275,21 @@ class TreatmentController {
         $exerciseStmt->execute([$session['id']]);
         $exerciseRows = $exerciseStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $machineStmt = $this->pdo->prepare("
+            SELECT
+                tm.machine_id,
+                tm.machine_name,
+                tm.duration_minutes,
+                tm.notes,
+                m.name AS master_name
+            FROM treatment_machines tm
+            LEFT JOIN machines m ON tm.machine_id = m.id
+            WHERE tm.session_id = ?
+            ORDER BY tm.id ASC
+        ");
+        $machineStmt->execute([$session['id']]);
+        $machineRows = $machineStmt->fetchAll(PDO::FETCH_ASSOC);
+
         $session['primary_therapist_id'] = $session['primary_therapist_id'] !== null
             ? (int) $session['primary_therapist_id']
             : null;
@@ -223,6 +307,16 @@ class TreatmentController {
                 'notes' => $row['notes'],
             ];
         }, $exerciseRows);
+
+        $session['machines'] = array_map(function ($row) {
+            return [
+                'machine_id' => $row['machine_id'] !== null ? (int) $row['machine_id'] : null,
+                'name' => $row['master_name'] ?? $row['machine_name'] ?? '',
+                'machine_name' => $row['machine_name'] ?? '',
+                'duration_minutes' => $row['duration_minutes'],
+                'notes' => $row['notes'],
+            ];
+        }, $machineRows);
 
         return $session;
     }
@@ -254,6 +348,57 @@ class TreatmentController {
         ");
         $stmt->execute([$patient_id, $episode_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getPreviousSessionMachines($patient_id, $episode_id) {
+        $stmt = $this->pdo->prepare("
+            SELECT ts.id AS session_id,
+                   ts.session_date,
+                   ts.remarks,
+                   ts.progress_notes,
+                   ts.advise,
+                   ts.additional_treatment_notes,
+                   primary_user.name AS primary_therapist_name,
+                   secondary_user.name AS secondary_therapist_name,
+                   tm.machine_id,
+                   tm.machine_name,
+                   tm.duration_minutes,
+                   tm.notes,
+                   m.name AS master_name
+            FROM treatment_sessions ts
+            LEFT JOIN users primary_user ON ts.primary_therapist_id = primary_user.id
+            LEFT JOIN users secondary_user ON ts.secondary_therapist_id = secondary_user.id
+            LEFT JOIN treatment_machines tm ON ts.id = tm.session_id
+            LEFT JOIN machines m ON tm.machine_id = m.id
+            WHERE ts.patient_id = ? AND ts.episode_id = ?
+            ORDER BY ts.session_date DESC, ts.id DESC, tm.id
+        ");
+        $stmt->execute([$patient_id, $episode_id]);
+
+        $rows = array_filter($stmt->fetchAll(PDO::FETCH_ASSOC), function ($row) {
+            return $row['machine_id'] !== null
+                || $row['machine_name'] !== null
+                || $row['duration_minutes'] !== null
+                || $row['notes'] !== null;
+        });
+
+        return array_map(function ($row) {
+            return [
+                'session_id' => (int) $row['session_id'],
+                'session_date' => $row['session_date'],
+                'remarks' => $row['remarks'],
+                'progress_notes' => $row['progress_notes'],
+                'advise' => $row['advise'],
+                'additional_treatment_notes' => $row['additional_treatment_notes'],
+                'primary_therapist_name' => $row['primary_therapist_name'],
+                'secondary_therapist_name' => $row['secondary_therapist_name'],
+                'machine_id' => $row['machine_id'] !== null ? (int) $row['machine_id'] : null,
+                'machine_name' => $row['machine_name'],
+                'duration_minutes' => $row['duration_minutes'],
+                'notes' => $row['notes'],
+                'name' => $row['master_name'] ?? $row['machine_name'] ?? '',
+            ];
+        }, $rows);
     }
 }
 ?>
