@@ -11,7 +11,7 @@ class AdminController {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') return '';
 
         $action = $_POST['action'] ?? '';
-        $id = $_POST['id'] ?? null;
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : null;
 
         if ($action === 'add_user') {
             $email = trim($_POST['email']);
@@ -83,7 +83,7 @@ class AdminController {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') return '';
 
         $action = $_POST['action'] ?? '';
-        $id = $_POST['id'] ?? null;
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : null;
 
         if ($action === 'add_referral') {
             $name = trim($_POST['name']);
@@ -145,7 +145,7 @@ class AdminController {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') return '';
 
         $action = $_POST['action'] ?? '';
-        $id = $_POST['id'] ?? null;
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : null;
 
         if ($action === 'add_exercise') {
             $name = trim($_POST['name']);
@@ -208,5 +208,74 @@ class AdminController {
         $stmt->execute(["%$search%"]);
         return $stmt->fetchColumn();
     }
-    
+
+    // -------------------- Machines ------------------------
+
+    public function handleMachinesActions() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') return '';
+
+        $action = $_POST['action'] ?? '';
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : null;
+
+        if ($action === 'add_machine') {
+            $name = trim($_POST['name'] ?? '');
+            $defaultDuration = max(0, (int) ($_POST['default_duration_minutes'] ?? 0));
+
+            if ($name === '') {
+                return "Machine name is required.";
+            }
+
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM machines WHERE name = ?");
+            $stmt->execute([$name]);
+            if ($stmt->fetchColumn() > 0) {
+                return "Machine name already exists.";
+            }
+
+            $stmt = $this->pdo->prepare("INSERT INTO machines (name, default_duration_minutes) VALUES (?, ?)");
+            $stmt->execute([$name, $defaultDuration]);
+            return "Machine added successfully.";
+        }
+
+        if ($action === 'edit_machine' && $id) {
+            $name = trim($_POST['name'] ?? '');
+            $defaultDuration = max(0, (int) ($_POST['default_duration_minutes'] ?? 0));
+
+            if ($name === '') {
+                return "Machine name is required.";
+            }
+
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM machines WHERE name = ? AND id != ?");
+            $stmt->execute([$name, $id]);
+            if ($stmt->fetchColumn() > 0) {
+                return "Another machine with this name already exists.";
+            }
+
+            $stmt = $this->pdo->prepare("UPDATE machines SET name = ?, default_duration_minutes = ? WHERE id = ?");
+            $stmt->execute([$name, $defaultDuration, $id]);
+            return "Machine updated successfully.";
+        }
+
+        if ($action === 'delete_machine' && $id) {
+            $stmt = $this->pdo->prepare("DELETE FROM machines WHERE id = ?");
+            $stmt->execute([$id]);
+            return "Machine deleted.";
+        }
+
+        return '';
+    }
+
+    public function getMachines($search = '', $page = 1, $limit = 10) {
+        $offset = ($page - 1) * $limit;
+        $sql = "SELECT * FROM machines WHERE name LIKE ? ORDER BY id DESC LIMIT $limit OFFSET $offset";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(["%$search%"]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function countMachines($search = '') {
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM machines WHERE name LIKE ?");
+        $stmt->execute(["%$search%"]);
+        return $stmt->fetchColumn();
+    }
+
 }
