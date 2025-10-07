@@ -87,18 +87,79 @@ class PaymentController {
         }
     }
 
-    public function recordSessionPayment($patientId, $episodeId, $sessionDate, $amount) {
+    public function recordSessionPayment($patientId, $episodeId, $sessionDate, $amount, $sessionId = null) {
         $data = [
             'patient_id' => $patientId,
             'payment_date' => $sessionDate,
             'amount' => $amount,
             'transaction_type' => 'charge',
             'episode_id' => $episodeId,
-            'session_reference' => $sessionDate,
+            'session_reference' => $sessionId !== null ? 'session:' . $sessionId : $sessionDate,
             'notes' => 'Session charge',
         ];
 
         $this->savePayment($data);
+    }
+
+    public function removeSessionCharges($patientId, $episodeId, $sessionId, $sessionDate = null) {
+        $references = [];
+        if ($sessionId !== null) {
+            $references[] = 'session:' . $sessionId;
+        }
+        if ($sessionDate) {
+            $references[] = $sessionDate;
+        }
+
+        $references = array_values(array_unique(array_filter($references)));
+        if (empty($references)) {
+            return 0;
+        }
+
+        $useTransaction = !$this->pdo->inTransaction();
+        if ($useTransaction) {
+            $this->pdo->beginTransaction();
+        }
+
+        try {
+            $placeholders = implode(',', array_fill(0, count($references), '?'));
+            $params = [$patientId];
+            $params = array_merge($params, $references);
+
+            if ($episodeId === null) {
+                $episodeCondition = ' AND episode_id IS NULL';
+            } else {
+                $episodeCondition = ' AND episode_id = ?';
+                $params[] = $episodeId;
+            }
+
+            $sql = "
+                DELETE FROM patient_payment_ledger
+                WHERE patient_id = ?
+                  AND transaction_type = 'charge'
+                  AND session_reference IN ($placeholders)
+                  $episodeCondition
+            ";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+
+            $deleted = $stmt->rowCount();
+
+            if ($deleted > 0) {
+                $this->recalculateLedgerForPatient($patientId);
+            }
+
+            if ($useTransaction) {
+                $this->pdo->commit();
+            }
+
+            return $deleted;
+        } catch (Exception $e) {
+            if ($useTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw $e;
+        }
     }
 
     public function deletePayment($id) {

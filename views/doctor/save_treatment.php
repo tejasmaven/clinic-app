@@ -23,11 +23,14 @@ if (
 
     $result = $treatmentController->saveSession($data);
 
-    if ($result === true) {
+    if (is_array($result) && !empty($result['success'])) {
         header("Location: ../views/doctor/doctor_dashboard.php?msg=Treatment+saved");
         exit;
     } else {
-        echo "Error saving treatment: " . htmlspecialchars($result);
+        $errorMessage = is_array($result) && isset($result['error'])
+            ? $result['error']
+            : (is_string($result) ? $result : 'Unable to save the treatment session.');
+        echo "Error saving treatment: " . htmlspecialchars($errorMessage);
     }
 } else {
     echo "Invalid access or missing fields.";

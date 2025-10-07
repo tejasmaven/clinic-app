@@ -49,6 +49,7 @@ foreach ($previousExercises as $ex) {
     $sid = $ex['session_id'];
     if (!isset($groupedSessions[$sid])) {
         $groupedSessions[$sid] = [
+            'session_id' => (int) $sid,
             'session_date' => $ex['session_date'],
             'remarks' => $ex['remarks'],
             'progress_notes' => $ex['progress_notes'],
@@ -67,13 +68,64 @@ foreach ($previousExercises as $ex) {
 
 $msg = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $primaryTherapistId = isset($_POST['primary_therapist_id']) ? (int) $_POST['primary_therapist_id'] : 0;
-    $secondaryTherapistId = isset($_POST['secondary_therapist_id']) && $_POST['secondary_therapist_id'] !== ''
-        ? (int) $_POST['secondary_therapist_id']
-        : null;
+if (isset($_GET['status']) && $_GET['status'] === 'session_deleted') {
+    $msg = 'Treatment session deleted successfully.';
+}
 
-    if ($primaryTherapistId <= 0 || !isset($therapistMap[$primaryTherapistId])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? 'save_session';
+
+    if ($action === 'delete_session') {
+        $sessionId = isset($_POST['session_id']) ? (int) $_POST['session_id'] : 0;
+
+        if ($sessionId <= 0) {
+            $msg = 'Invalid session selected for deletion.';
+        } else {
+            $sessionDetails = $treatmentController->getSessionById($sessionId);
+
+            if (
+                !$sessionDetails
+                || $sessionDetails['patient_id'] !== $patient_id
+                || $sessionDetails['episode_id'] !== $episode_id
+            ) {
+                $msg = 'Unable to delete the selected session.';
+            } else {
+                try {
+                    $pdo->beginTransaction();
+
+                    $deleted = $treatmentController->deleteSessionById($sessionId);
+                    if (!$deleted) {
+                        throw new RuntimeException('Session deletion failed.');
+                    }
+
+                    $paymentController->removeSessionCharges(
+                        $sessionDetails['patient_id'],
+                        $sessionDetails['episode_id'],
+                        $sessionId,
+                        $sessionDetails['session_date']
+                    );
+
+                    $pdo->commit();
+
+                    header('Location: start_treatment.php?episode_id=' . $episode_id . '&patient_id=' . $patient_id . '&status=session_deleted');
+                    exit;
+                } catch (Exception $e) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+
+                    $msg = 'Failed to delete session: ' . $e->getMessage();
+                }
+            }
+        }
+
+    } else {
+        $primaryTherapistId = isset($_POST['primary_therapist_id']) ? (int) $_POST['primary_therapist_id'] : 0;
+        $secondaryTherapistId = isset($_POST['secondary_therapist_id']) && $_POST['secondary_therapist_id'] !== ''
+            ? (int) $_POST['secondary_therapist_id']
+            : null;
+
+        if ($primaryTherapistId <= 0 || !isset($therapistMap[$primaryTherapistId])) {
         $msg = 'Please select a valid primary therapist.';
     } elseif ($secondaryTherapistId !== null && !isset($therapistMap[$secondaryTherapistId])) {
         $msg = 'Please select a valid secondary therapist.';
@@ -108,14 +160,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $amount = isset($_POST['session_amount']) ? (float) $_POST['session_amount'] : 0.0;
         $result = $treatmentController->saveSession($data);
 
-        if ($result === true) {
+        if (is_array($result) && !empty($result['success'])) {
+            $sessionId = isset($result['session_id']) ? (int) $result['session_id'] : null;
             if ($amount > 0) {
                 try {
                     $paymentController->recordSessionPayment(
                         $data['patient_id'],
                         $data['episode_id'],
                         $data['session_date'],
-                        $amount
+                        $amount,
+                        $sessionId
                     );
                 } catch (Exception $e) {
                     $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
@@ -127,9 +181,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
         } else {
-            $msg = 'Error: ' . $result;
+            $errorMessage = is_array($result) && isset($result['error'])
+                ? $result['error']
+                : (is_string($result) ? $result : 'Unable to save the treatment session.');
+            $msg = 'Error: ' . $errorMessage;
         }
     }
+}
 }
 
 $selectedPrimaryTherapistId = '';
@@ -182,6 +240,15 @@ include '../../includes/header.php';
               </h2>
               <div id="collapse<?= $idx ?>" class="accordion-collapse collapse" aria-labelledby="heading<?= $idx ?>" data-bs-parent="#previousExercisesAccordion">
                 <div class="accordion-body">
+                  <?php if (!empty($session['session_id'])): ?>
+                    <div class="d-flex justify-content-end mb-3">
+                      <form method="POST" class="delete-session-form">
+                        <input type="hidden" name="action" value="delete_session">
+                        <input type="hidden" name="session_id" value="<?= (int) $session['session_id'] ?>">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete Session</button>
+                      </form>
+                    </div>
+                  <?php endif; ?>
                   <?php if (!empty($session['primary_therapist_name'])): ?>
                     <p class="mb-2"><strong>Primary Therapist:</strong> <?= htmlspecialchars($session['primary_therapist_name']) ?></p>
                   <?php endif; ?>
@@ -340,6 +407,7 @@ include '../../includes/header.php';
     addExercise();
     syncTherapistSelections();
     setupCopyLastSession();
+    setupDeleteSessionForms();
   });
 
   if (primaryTherapistSelect && secondaryTherapistSelect) {
@@ -363,6 +431,18 @@ include '../../includes/header.php';
           populateFromLastSession();
         } else if (event.target.value === 'no' && event.target.checked) {
           clearCopiedSessionData();
+        }
+      });
+    });
+  }
+
+  function setupDeleteSessionForms() {
+    const deleteForms = document.querySelectorAll('.delete-session-form');
+    deleteForms.forEach(form => {
+      form.addEventListener('submit', event => {
+        const confirmed = confirm('Are you sure you want to permanently delete this treatment session? This action cannot be undone.');
+        if (!confirmed) {
+          event.preventDefault();
         }
       });
     });
