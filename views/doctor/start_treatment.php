@@ -90,14 +90,23 @@ foreach ($previousMachines as $machine) {
     $groupedSessions[$sid]['machines'][] = $machine;
 }
 
+$editSessionId = isset($_GET['edit_session_id']) ? (int) $_GET['edit_session_id'] : 0;
 $msg = null;
 
-if (isset($_GET['status']) && $_GET['status'] === 'session_deleted') {
-    $msg = 'Treatment session deleted successfully.';
+if (isset($_GET['status'])) {
+    if ($_GET['status'] === 'session_deleted') {
+        $msg = 'Treatment session deleted successfully.';
+    } elseif ($_GET['status'] === 'session_updated') {
+        $msg = 'Treatment session updated successfully.';
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'save_session';
+
+    if ($action === 'update_session') {
+        $editSessionId = isset($_POST['session_id']) ? (int) $_POST['session_id'] : 0;
+    }
 
     if ($action === 'delete_session') {
         $sessionId = isset($_POST['session_id']) ? (int) $_POST['session_id'] : 0;
@@ -150,95 +159,190 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : null;
 
         if ($primaryTherapistId <= 0 || !isset($therapistMap[$primaryTherapistId])) {
-        $msg = 'Please select a valid primary therapist.';
-    } elseif ($secondaryTherapistId !== null && !isset($therapistMap[$secondaryTherapistId])) {
-        $msg = 'Please select a valid secondary therapist.';
-    } elseif ($secondaryTherapistId !== null && $secondaryTherapistId === $primaryTherapistId) {
-        $msg = 'Primary and secondary therapist cannot be the same.';
-    } else {
-        $additionalNotes = trim($_POST['additional_treatment_notes'] ?? '');
+            $msg = 'Please select a valid primary therapist.';
+        } elseif ($secondaryTherapistId !== null && !isset($therapistMap[$secondaryTherapistId])) {
+            $msg = 'Please select a valid secondary therapist.';
+        } elseif ($secondaryTherapistId !== null && $secondaryTherapistId === $primaryTherapistId) {
+            $msg = 'Primary and secondary therapist cannot be the same.';
+        } else {
+            $additionalNotes = trim($_POST['additional_treatment_notes'] ?? '');
 
-        $exercises_data = [
-            'exercise_id' => $_POST['exercises_exercise_id'] ?? [],
-            'reps' => $_POST['exercises_reps'] ?? [],
-            'duration_minutes' => $_POST['exercises_duration_minutes'] ?? [],
-            'notes' => $_POST['exercises_notes'] ?? [],
-            'new_name' => $_POST['new_exercise_name'] ?? [],
-        ];
+            $exercises_data = [
+                'exercise_id' => $_POST['exercises_exercise_id'] ?? [],
+                'reps' => $_POST['exercises_reps'] ?? [],
+                'duration_minutes' => $_POST['exercises_duration_minutes'] ?? [],
+                'notes' => $_POST['exercises_notes'] ?? [],
+                'new_name' => $_POST['new_exercise_name'] ?? [],
+            ];
 
-        $machines_data = [
-            'machine_id' => $_POST['machines_machine_id'] ?? [],
-            'duration_minutes' => $_POST['machines_duration_minutes'] ?? [],
-            'notes' => $_POST['machines_notes'] ?? [],
-            'new_name' => $_POST['new_machine_name'] ?? [],
-        ];
+            $machines_data = [
+                'machine_id' => $_POST['machines_machine_id'] ?? [],
+                'duration_minutes' => $_POST['machines_duration_minutes'] ?? [],
+                'notes' => $_POST['machines_notes'] ?? [],
+                'new_name' => $_POST['new_machine_name'] ?? [],
+            ];
 
-        $data = [
-            'patient_id' => $_POST['patient_id'] ?? $patient_id,
-            'episode_id' => $_POST['episode_id'] ?? $episode_id,
-            'session_date' => $_POST['session_date'] ?? date('Y-m-d'),
-            'doctor_id' => $_SESSION['user_id'],
-            'primary_therapist_id' => $primaryTherapistId,
-            'secondary_therapist_id' => $secondaryTherapistId,
-            'remarks' => $_POST['remarks'] ?? '',
-            'progress_notes' => $_POST['progress_notes'] ?? '',
-            'advise' => $_POST['advise'] ?? '',
-            'additional_treatment_notes' => $additionalNotes,
-            'exercises' => $exercises_data,
-            'machines' => $machines_data,
-            'file' => $_FILES['session_file'] ?? null,
-        ];
+            $data = [
+                'patient_id' => $_POST['patient_id'] ?? $patient_id,
+                'episode_id' => $_POST['episode_id'] ?? $episode_id,
+                'session_date' => $_POST['session_date'] ?? date('Y-m-d'),
+                'doctor_id' => $_SESSION['user_id'],
+                'primary_therapist_id' => $primaryTherapistId,
+                'secondary_therapist_id' => $secondaryTherapistId,
+                'remarks' => $_POST['remarks'] ?? '',
+                'progress_notes' => $_POST['progress_notes'] ?? '',
+                'advise' => $_POST['advise'] ?? '',
+                'additional_treatment_notes' => $additionalNotes,
+                'exercises' => $exercises_data,
+                'machines' => $machines_data,
+                'file' => $_FILES['session_file'] ?? null,
+            ];
 
-        $amount = isset($_POST['session_amount']) ? (float) $_POST['session_amount'] : 0.0;
-        $result = $treatmentController->saveSession($data);
+            $amount = isset($_POST['session_amount']) ? (float) $_POST['session_amount'] : 0.0;
 
-        if (is_array($result) && !empty($result['success'])) {
-            $sessionId = isset($result['session_id']) ? (int) $result['session_id'] : null;
-            if ($amount > 0) {
-                try {
-                    $paymentController->recordSessionPayment(
-                        $data['patient_id'],
-                        $data['episode_id'],
-                        $data['session_date'],
-                        $amount,
-                        $sessionId
-                    );
-                } catch (Exception $e) {
-                    $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
+            if ($action === 'update_session') {
+                $sessionId = isset($_POST['session_id']) ? (int) $_POST['session_id'] : 0;
+
+                if ($sessionId <= 0) {
+                    $msg = 'Invalid session selected for update.';
+                } else {
+                    $existingSession = $treatmentController->getSessionWithDetails($sessionId);
+
+                    if (
+                        !$existingSession
+                        || (int) $existingSession['patient_id'] !== $patient_id
+                        || (int) $existingSession['episode_id'] !== $episode_id
+                    ) {
+                        $msg = 'Unable to update the selected session.';
+                    } else {
+                        $previousSessionDate = $existingSession['session_date'];
+
+                        $result = $treatmentController->updateSession($sessionId, $data);
+
+                        if (is_array($result) && !empty($result['success'])) {
+                            try {
+                                $paymentController->removeSessionCharges(
+                                    $patient_id,
+                                    $episode_id,
+                                    $sessionId,
+                                    $previousSessionDate
+                                );
+
+                                if ($amount > 0) {
+                                    $paymentController->recordSessionPayment(
+                                        $data['patient_id'],
+                                        $data['episode_id'],
+                                        $data['session_date'],
+                                        $amount,
+                                        $sessionId
+                                    );
+                                }
+                            } catch (Exception $e) {
+                                $msg = 'Session updated but payment update failed: ' . $e->getMessage();
+                            }
+
+                            if ($msg === null) {
+                                header('Location: start_treatment.php?episode_id=' . $episode_id . '&patient_id=' . $patient_id . '&status=session_updated');
+                                exit;
+                            }
+                        } else {
+                            $errorMessage = is_array($result) && isset($result['error'])
+                                ? $result['error']
+                                : (is_string($result) ? $result : 'Unable to update the treatment session.');
+                            $msg = 'Error: ' . $errorMessage;
+                        }
+                    }
+                }
+            } else {
+                $result = $treatmentController->saveSession($data);
+
+                if (is_array($result) && !empty($result['success'])) {
+                    $sessionId = isset($result['session_id']) ? (int) $result['session_id'] : null;
+                    if ($amount > 0) {
+                        try {
+                            $paymentController->recordSessionPayment(
+                                $data['patient_id'],
+                                $data['episode_id'],
+                                $data['session_date'],
+                                $amount,
+                                $sessionId
+                            );
+                        } catch (Exception $e) {
+                            $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
+                        }
+                    }
+
+                    if ($msg === null) {
+                        header('Location: start_treatment.php?episode_id=' . $episode_id . '&patient_id=' . $patient_id);
+                        exit;
+                    }
+                } else {
+                    $errorMessage = is_array($result) && isset($result['error'])
+                        ? $result['error']
+                        : (is_string($result) ? $result : 'Unable to save the treatment session.');
+                    $msg = 'Error: ' . $errorMessage;
                 }
             }
-
-            if ($msg === null) {
-                header('Location: start_treatment.php?episode_id=' . $episode_id . '&patient_id=' . $patient_id);
-                exit;
-            }
-        } else {
-            $errorMessage = is_array($result) && isset($result['error'])
-                ? $result['error']
-                : (is_string($result) ? $result : 'Unable to save the treatment session.');
-            $msg = 'Error: ' . $errorMessage;
         }
     }
 }
+
+$editingSessionData = null;
+if ($editSessionId > 0) {
+    $editingSessionData = $treatmentController->getSessionWithDetails($editSessionId);
+
+    if (
+        !$editingSessionData
+        || (int) $editingSessionData['patient_id'] !== $patient_id
+        || (int) $editingSessionData['episode_id'] !== $episode_id
+    ) {
+        if ($msg === null) {
+            $msg = 'The requested session could not be loaded for editing.';
+        }
+        $editingSessionData = null;
+        $editSessionId = 0;
+    }
 }
+
+$isEditingSession = $editingSessionData !== null;
 
 $selectedPrimaryTherapistId = '';
 if (isset($_POST['primary_therapist_id'])) {
     $selectedPrimaryTherapistId = (string) $_POST['primary_therapist_id'];
+} elseif ($isEditingSession && $editingSessionData['primary_therapist_id'] !== null) {
+    $selectedPrimaryTherapistId = (string) $editingSessionData['primary_therapist_id'];
 } elseif (isset($_SESSION['user_id']) && isset($therapistMap[(int) $_SESSION['user_id']])) {
     $selectedPrimaryTherapistId = (string) $_SESSION['user_id'];
 }
 
-$selectedSecondaryTherapistId = isset($_POST['secondary_therapist_id']) ? (string) $_POST['secondary_therapist_id'] : '';
-$sessionDateValue = $_POST['session_date'] ?? date('Y-m-d');
-$sessionAmountValue = $_POST['session_amount'] ?? '';
-$remarksValue = $_POST['remarks'] ?? '';
-$progressNotesValue = $_POST['progress_notes'] ?? '';
-$adviseValue = $_POST['advise'] ?? '';
-$additionalTreatmentNotesValue = $_POST['additional_treatment_notes'] ?? '';
-$copyLastSessionValue = (isset($_POST['copy_last_session']) && $_POST['copy_last_session'] === 'yes' && $latestSessionData)
-    ? 'yes'
-    : 'no';
+if (isset($_POST['secondary_therapist_id'])) {
+    $selectedSecondaryTherapistId = (string) $_POST['secondary_therapist_id'];
+} elseif ($isEditingSession && $editingSessionData['secondary_therapist_id'] !== null) {
+    $selectedSecondaryTherapistId = (string) $editingSessionData['secondary_therapist_id'];
+} else {
+    $selectedSecondaryTherapistId = '';
+}
+
+$sessionDateValue = $_POST['session_date']
+    ?? ($isEditingSession ? ($editingSessionData['session_date'] ?? date('Y-m-d')) : date('Y-m-d'));
+$sessionAmountValue = $_POST['session_amount']
+    ?? ($isEditingSession ? ($editingSessionData['amount'] ?? '') : '');
+$remarksValue = $_POST['remarks']
+    ?? ($isEditingSession ? ($editingSessionData['remarks'] ?? '') : '');
+$progressNotesValue = $_POST['progress_notes']
+    ?? ($isEditingSession ? ($editingSessionData['progress_notes'] ?? '') : '');
+$adviseValue = $_POST['advise']
+    ?? ($isEditingSession ? ($editingSessionData['advise'] ?? '') : '');
+$additionalTreatmentNotesValue = $_POST['additional_treatment_notes']
+    ?? ($isEditingSession ? ($editingSessionData['additional_treatment_notes'] ?? '') : '');
+
+if ($isEditingSession) {
+    $copyLastSessionValue = 'no';
+} else {
+    $copyLastSessionValue = (isset($_POST['copy_last_session']) && $_POST['copy_last_session'] === 'yes' && $latestSessionData)
+        ? 'yes'
+        : 'no';
+}
 
 include '../../includes/header.php';
 ?>
@@ -247,10 +351,15 @@ include '../../includes/header.php';
   <div class="workspace-content">
     <div class="workspace-page-header">
       <div>
-        <h1 class="workspace-page-title">Log Treatment Session</h1>
+        <h1 class="workspace-page-title">
+          <?= $isEditingSession ? 'Update Treatment Session' : 'Log Treatment Session' ?>
+        </h1>
         <p class="workspace-page-subtitle">Patient: <?= htmlspecialchars($patient_name) ?></p>
       </div>
       <div class="d-flex gap-2">
+        <?php if ($isEditingSession): ?>
+          <a href="start_treatment.php?episode_id=<?= $episode_id ?>&patient_id=<?= $patient_id ?>" class="btn btn-outline-primary">Cancel Editing</a>
+        <?php endif; ?>
         <a href="select_or_create_episode.php?patient_id=<?= $patient_id ?>" class="btn btn-outline-secondary">Back to Episodes</a>
       </div>
     </div>
@@ -264,16 +373,28 @@ include '../../includes/header.php';
         <h5 class="mb-3">Previous Sessions</h5>
         <div class="accordion" id="previousExercisesAccordion">
           <?php $idx = 0; foreach ($groupedSessions as $session): $idx++; ?>
-            <div class="accordion-item">
+            <?php
+              $currentSessionId = isset($session['session_id']) ? (int) $session['session_id'] : 0;
+              $isCurrentEditingSession = $isEditingSession && $editingSessionData && isset($editingSessionData['id']) && (int) $editingSessionData['id'] === $currentSessionId;
+            ?>
+            <div class="accordion-item<?= $isCurrentEditingSession ? ' border border-primary' : '' ?>">
               <h2 class="accordion-header" id="heading<?= $idx ?>">
                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<?= $idx ?>" aria-expanded="false" aria-controls="collapse<?= $idx ?>">
                   <?= htmlspecialchars($session['session_date']) ?>
+                  <?php if ($isCurrentEditingSession): ?>
+                    <span class="badge bg-primary ms-2">Editing</span>
+                  <?php endif; ?>
                 </button>
               </h2>
               <div id="collapse<?= $idx ?>" class="accordion-collapse collapse" aria-labelledby="heading<?= $idx ?>" data-bs-parent="#previousExercisesAccordion">
                 <div class="accordion-body">
                   <?php if (!empty($session['session_id'])): ?>
-                    <div class="d-flex justify-content-end mb-3">
+                    <div class="d-flex justify-content-end flex-wrap gap-2 mb-3">
+                      <?php if ($isCurrentEditingSession): ?>
+                        <span class="badge bg-primary align-self-center">Currently editing</span>
+                      <?php else: ?>
+                        <a href="start_treatment.php?episode_id=<?= $episode_id ?>&patient_id=<?= $patient_id ?>&edit_session_id=<?= (int) $session['session_id'] ?>" class="btn btn-sm btn-outline-primary">Edit Session</a>
+                      <?php endif; ?>
                       <form method="POST" class="delete-session-form">
                         <input type="hidden" name="action" value="delete_session">
                         <input type="hidden" name="session_id" value="<?= (int) $session['session_id'] ?>">
@@ -348,28 +469,39 @@ include '../../includes/header.php';
     <?php endif; ?>
 
     <div class="app-card">
+      <?php if ($isEditingSession && $editingSessionData): ?>
+        <div class="alert alert-warning mb-3">
+          Editing session dated <?= htmlspecialchars($editingSessionData['session_date']) ?>.
+        </div>
+      <?php endif; ?>
       <form method="POST" enctype="multipart/form-data" class="d-flex flex-column gap-3">
+        <input type="hidden" name="action" value="<?= $isEditingSession ? 'update_session' : 'save_session' ?>">
+        <?php if ($isEditingSession && isset($editingSessionData['id'])): ?>
+          <input type="hidden" name="session_id" value="<?= (int) $editingSessionData['id'] ?>">
+        <?php endif; ?>
         <input type="hidden" name="patient_id" value="<?= $patient_id ?>">
         <input type="hidden" name="episode_id" value="<?= $episode_id ?>">
 
-        <div class="row g-3">
-          <div class="col-12">
-            <div class="fw-bold mb-2">Copy last session data of this patient?</div>
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_yes" value="yes" <?= $copyLastSessionValue === 'yes' ? 'checked' : '' ?> <?= $latestSessionData ? '' : 'disabled' ?>>
-                <label class="form-check-label" for="copy_last_session_yes">Yes</label>
+        <?php if (!$isEditingSession): ?>
+          <div class="row g-3">
+            <div class="col-12">
+              <div class="fw-bold mb-2">Copy last session data of this patient?</div>
+              <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_yes" value="yes" <?= $copyLastSessionValue === 'yes' ? 'checked' : '' ?> <?= $latestSessionData ? '' : 'disabled' ?>>
+                  <label class="form-check-label" for="copy_last_session_yes">Yes</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_no" value="no" <?= $copyLastSessionValue !== 'yes' ? 'checked' : '' ?>>
+                  <label class="form-check-label" for="copy_last_session_no">No</label>
+                </div>
               </div>
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_no" value="no" <?= $copyLastSessionValue !== 'yes' ? 'checked' : '' ?>>
-                <label class="form-check-label" for="copy_last_session_no">No</label>
-              </div>
+              <?php if (!$latestSessionData): ?>
+                <small class="text-muted">No previous session data available to copy.</small>
+              <?php endif; ?>
             </div>
-            <?php if (!$latestSessionData): ?>
-              <small class="text-muted">No previous session data available to copy.</small>
-            <?php endif; ?>
           </div>
-        </div>
+        <?php endif; ?>
 
         <div class="row g-3">
           <div class="col-12 col-md-4">
@@ -451,7 +583,7 @@ include '../../includes/header.php';
         </div>
 
         <div class="mt-2">
-          <button type="submit" class="btn btn-primary">Save Treatment</button>
+          <button type="submit" class="btn btn-primary"><?= $isEditingSession ? 'Update Treatment' : 'Save Treatment' ?></button>
         </div>
       </form>
     </div>
@@ -462,15 +594,23 @@ include '../../includes/header.php';
   const exerciseMaster = <?= json_encode($exercise_master) ?>;
   const machineMaster = <?= json_encode($machine_master) ?>;
   const latestSessionData = <?= json_encode($latestSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+  const editingSession = <?= json_encode($editingSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+  const isEditingSession = Boolean(editingSession && editingSession.id);
   const primaryTherapistSelect = document.getElementById('primary_therapist_id');
   const secondaryTherapistSelect = document.getElementById('secondary_therapist_id');
   const copyLastSessionInputs = document.querySelectorAll('input[name="copy_last_session"]');
 
   document.addEventListener('DOMContentLoaded', () => {
-    addExercise();
-    addMachine();
+    if (isEditingSession) {
+      populateSessionForEditing(editingSession);
+    } else {
+      addExercise();
+      addMachine();
+    }
     syncTherapistSelections();
-    setupCopyLastSession();
+    if (!isEditingSession) {
+      setupCopyLastSession();
+    }
     setupDeleteSessionForms();
   });
 
@@ -482,6 +622,56 @@ include '../../includes/header.php';
       }
       syncTherapistSelections();
     });
+  }
+
+  function populateSessionForEditing(session) {
+    if (!session) {
+      addExercise();
+      addMachine();
+      return;
+    }
+
+    const sessionDateInput = document.getElementById('session_date');
+    if (sessionDateInput && session.session_date) {
+      sessionDateInput.value = session.session_date;
+    }
+
+    const amountInput = document.getElementById('session_amount');
+    if (amountInput) {
+      amountInput.value = session.amount ?? '';
+    }
+
+    if (primaryTherapistSelect) {
+      primaryTherapistSelect.value = session.primary_therapist_id
+        ? String(session.primary_therapist_id)
+        : '';
+    }
+    if (secondaryTherapistSelect) {
+      secondaryTherapistSelect.value = session.secondary_therapist_id
+        ? String(session.secondary_therapist_id)
+        : '';
+    }
+    syncTherapistSelections();
+
+    const remarksInput = document.getElementById('remarks');
+    if (remarksInput) {
+      remarksInput.value = session.remarks ?? '';
+    }
+    const progressNotesInput = document.getElementById('progress_notes');
+    if (progressNotesInput) {
+      progressNotesInput.value = session.progress_notes ?? '';
+    }
+    const adviseInput = document.getElementById('advise');
+    if (adviseInput) {
+      adviseInput.value = session.advise ?? '';
+    }
+    const additionalNotesInput = document.getElementById('additional_treatment_notes');
+    if (additionalNotesInput) {
+      additionalNotesInput.value = session.additional_treatment_notes ?? '';
+    }
+
+    populateExercises(Array.isArray(session.exercises) ? session.exercises : []);
+    populateMachines(Array.isArray(session.machines) ? session.machines : []);
   }
 
   function setupCopyLastSession() {
