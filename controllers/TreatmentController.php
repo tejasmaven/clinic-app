@@ -8,7 +8,6 @@ class TreatmentController {
 
     public function saveSession($data) {
         try {
-            // Begin Transaction
             $this->pdo->beginTransaction();
 
             // Insert treatment session
@@ -32,16 +31,23 @@ class TreatmentController {
                     : null
             ]);
 
-            $session_id = $this->pdo->lastInsertId();
+            $session_id = (int) $this->pdo->lastInsertId();
 
             // Insert exercises
-            for($i=0;$i<count($data['exercises']['exercise_id']);$i++)
-            {
-                $exerciseId = $data['exercises']['exercise_id'][$i];
+            $exerciseIds = $data['exercises']['exercise_id'] ?? [];
+            $exerciseReps = $data['exercises']['reps'] ?? [];
+            $exerciseDurations = $data['exercises']['duration_minutes'] ?? [];
+            $exerciseNotes = $data['exercises']['notes'] ?? [];
+            $exerciseNames = $data['exercises']['new_name'] ?? [];
+
+            $exerciseCount = is_array($exerciseIds) ? count($exerciseIds) : 0;
+
+            for ($i = 0; $i < $exerciseCount; $i++) {
+                $exerciseId = $exerciseIds[$i];
                 if ($exerciseId === 'other') {
-                    $name = $data['exercises']['new_name'][$i] ?? 'Custom Exercise';
-                    $reps = $data['exercises']['reps'][$i] ?? 0;
-                    $dur = $data['exercises']['duration_minutes'][$i] ?? 0;
+                    $name = $exerciseNames[$i] ?? 'Custom Exercise';
+                    $reps = $exerciseReps[$i] ?? 0;
+                    $dur = $exerciseDurations[$i] ?? 0;
                     $stmtNew = $this->pdo->prepare("INSERT INTO exercises_master (name, default_reps, default_duration_minutes, is_active) VALUES (?, ?, ?, 1)");
                     $stmtNew->execute([$name, $reps, $dur]);
                     $exerciseId = $this->pdo->lastInsertId();
@@ -56,9 +62,9 @@ class TreatmentController {
                         'session_id' => $session_id,
                         'exercise_id' => $exerciseId,
                         'exercise_name' => '',
-                        'reps' => $data['exercises']['reps'][$i],
-                        'duration_minutes' =>  $data['exercises']['duration_minutes'][$i],
-                        'notes' =>  $data['exercises']['notes'][$i]
+                        'reps' => $exerciseReps[$i] ?? null,
+                        'duration_minutes' =>  $exerciseDurations[$i] ?? null,
+                        'notes' =>  $exerciseNotes[$i] ?? null
                     ]);
 
             }
@@ -95,11 +101,52 @@ class TreatmentController {
 
             // Commit Transaction
             $this->pdo->commit();
-            return true;
+
+            return [
+                'success' => true,
+                'session_id' => $session_id,
+            ];
         } catch (Exception $e) {
-            $this->pdo->rollBack();
-            return $e->getMessage();
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
+    }
+
+    public function getSessionById($sessionId) {
+        $stmt = $this->pdo->prepare("
+            SELECT id, patient_id, episode_id, session_date
+            FROM treatment_sessions
+            WHERE id = ?
+        ");
+        $stmt->execute([$sessionId]);
+
+        $session = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$session) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $session['id'],
+            'patient_id' => (int) $session['patient_id'],
+            'episode_id' => (int) $session['episode_id'],
+            'session_date' => $session['session_date'],
+        ];
+    }
+
+    public function deleteSessionById($sessionId) {
+        $stmtExercises = $this->pdo->prepare("DELETE FROM treatment_exercises WHERE session_id = ?");
+        $stmtExercises->execute([$sessionId]);
+
+        $stmtSession = $this->pdo->prepare("DELETE FROM treatment_sessions WHERE id = ?");
+        $stmtSession->execute([$sessionId]);
+
+        return $stmtSession->rowCount() > 0;
     }
 
     public function getLatestSessionWithDetails($patient_id, $episode_id) {
@@ -131,11 +178,16 @@ class TreatmentController {
             WHERE patient_id = ?
               AND episode_id = ?
               AND transaction_type = 'charge'
-              AND session_reference = ?
+              AND session_reference IN (?, ?)
             ORDER BY transaction_date DESC, id DESC
             LIMIT 1
         ");
-        $amountStmt->execute([$patient_id, $episode_id, $session['session_date']]);
+        $amountStmt->execute([
+            $patient_id,
+            $episode_id,
+            'session:' . $session['id'],
+            $session['session_date'],
+        ]);
         $amount = $amountStmt->fetchColumn();
 
         $exerciseStmt = $this->pdo->prepare("
