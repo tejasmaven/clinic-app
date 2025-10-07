@@ -28,6 +28,8 @@ $patient_name = trim($patientData['first_name'] . ' ' . $patientData['last_name'
 
 $exercise_master = $pdo->query("SELECT id, name FROM exercises_master WHERE is_active = 1 ORDER BY name")
     ->fetchAll(PDO::FETCH_ASSOC);
+$machine_master = $pdo->query("SELECT id, name, default_duration_minutes FROM machines ORDER BY name")
+    ->fetchAll(PDO::FETCH_ASSOC);
 $therapistStmt = $pdo->prepare("
     SELECT id, name
     FROM users
@@ -42,6 +44,7 @@ foreach ($therapists as $therapist) {
     $therapistMap[(int) $therapist['id']] = $therapist['name'];
 }
 $previousExercises = $treatmentController->getPreviousSessionExercises($patient_id, $episode_id);
+$previousMachines = $treatmentController->getPreviousSessionMachines($patient_id, $episode_id);
 $latestSessionData = $treatmentController->getLatestSessionWithDetails($patient_id, $episode_id);
 
 $groupedSessions = [];
@@ -58,12 +61,33 @@ foreach ($previousExercises as $ex) {
             'primary_therapist_name' => $ex['primary_therapist_name'] ?? null,
             'secondary_therapist_name' => $ex['secondary_therapist_name'] ?? null,
             'exercises' => [],
+            'machines' => [],
         ];
     }
 
     if (!empty($ex['exercise_id'])) {
         $groupedSessions[$sid]['exercises'][] = $ex;
     }
+}
+
+foreach ($previousMachines as $machine) {
+    $sid = $machine['session_id'];
+    if (!isset($groupedSessions[$sid])) {
+        $groupedSessions[$sid] = [
+            'session_id' => (int) $sid,
+            'session_date' => $machine['session_date'],
+            'remarks' => $machine['remarks'],
+            'progress_notes' => $machine['progress_notes'],
+            'advise' => $machine['advise'],
+            'additional_treatment_notes' => $machine['additional_treatment_notes'] ?? null,
+            'primary_therapist_name' => $machine['primary_therapist_name'] ?? null,
+            'secondary_therapist_name' => $machine['secondary_therapist_name'] ?? null,
+            'exercises' => [],
+            'machines' => [],
+        ];
+    }
+
+    $groupedSessions[$sid]['machines'][] = $machine;
 }
 
 $msg = null;
@@ -142,6 +166,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'new_name' => $_POST['new_exercise_name'] ?? [],
         ];
 
+        $machines_data = [
+            'machine_id' => $_POST['machines_machine_id'] ?? [],
+            'duration_minutes' => $_POST['machines_duration_minutes'] ?? [],
+            'notes' => $_POST['machines_notes'] ?? [],
+            'new_name' => $_POST['new_machine_name'] ?? [],
+        ];
+
         $data = [
             'patient_id' => $_POST['patient_id'] ?? $patient_id,
             'episode_id' => $_POST['episode_id'] ?? $episode_id,
@@ -154,6 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'advise' => $_POST['advise'] ?? '',
             'additional_treatment_notes' => $additionalNotes,
             'exercises' => $exercises_data,
+            'machines' => $machines_data,
             'file' => $_FILES['session_file'] ?? null,
         ];
 
@@ -285,6 +317,28 @@ include '../../includes/header.php';
                       </table>
                     </div>
                   <?php endif; ?>
+                  <?php if (!empty($session['machines'])): ?>
+                    <div class="table-responsive mt-3">
+                      <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th scope="col">Machine</th>
+                            <th scope="col">Duration</th>
+                            <th scope="col">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <?php foreach ($session['machines'] as $machine): ?>
+                            <tr>
+                              <td><?= htmlspecialchars($machine['name']) ?></td>
+                              <td><?= htmlspecialchars($machine['duration_minutes']) ?></td>
+                              <td><?= htmlspecialchars($machine['notes']) ?></td>
+                            </tr>
+                          <?php endforeach; ?>
+                        </tbody>
+                      </table>
+                    </div>
+                  <?php endif; ?>
                 </div>
               </div>
             </div>
@@ -369,6 +423,14 @@ include '../../includes/header.php';
           <div id="exerciseContainer" class="mt-3 d-flex flex-column gap-3"></div>
         </div>
 
+        <div>
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0">Used Machines</h5>
+            <button type="button" class="btn btn-outline-secondary" onclick="addMachine()">+ Add Machine</button>
+          </div>
+          <div id="machineContainer" class="mt-3 d-flex flex-column gap-3"></div>
+        </div>
+
         <div class="row g-3">
           <div class="col-12">
             <label class="form-label" for="remarks">Doctor's Remarks</label>
@@ -398,6 +460,7 @@ include '../../includes/header.php';
 
 <script>
   const exerciseMaster = <?= json_encode($exercise_master) ?>;
+  const machineMaster = <?= json_encode($machine_master) ?>;
   const latestSessionData = <?= json_encode($latestSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const primaryTherapistSelect = document.getElementById('primary_therapist_id');
   const secondaryTherapistSelect = document.getElementById('secondary_therapist_id');
@@ -405,6 +468,7 @@ include '../../includes/header.php';
 
   document.addEventListener('DOMContentLoaded', () => {
     addExercise();
+    addMachine();
     syncTherapistSelections();
     setupCopyLastSession();
     setupDeleteSessionForms();
@@ -502,6 +566,7 @@ include '../../includes/header.php';
     }
 
     populateExercises(latestSessionData.exercises || []);
+    populateMachines(latestSessionData.machines || []);
   }
 
   function populateExercises(exercises) {
@@ -565,6 +630,55 @@ include '../../includes/header.php';
     updateExerciseOptions();
   }
 
+  function populateMachines(machines) {
+    const container = resetMachineContainer();
+    if (!container) {
+      return;
+    }
+
+    if (!machines.length) {
+      addMachine();
+      return;
+    }
+
+    machines.forEach(machine => {
+      addMachine();
+      const row = container.lastElementChild;
+      if (!row) {
+        return;
+      }
+
+      const select = row.querySelector('.machine-select');
+      const otherInput = row.querySelector('.other-machine-name');
+      const durationInput = row.querySelector('.machine-duration-input');
+      const notesInput = row.querySelector('.machine-notes-input');
+
+      if (select) {
+        const machineId = machine.machine_id !== null ? String(machine.machine_id) : '';
+        const optionExists = Array.from(select.options).some(opt => opt.value === machineId);
+        if (machineId && optionExists) {
+          select.value = machineId;
+          $(select).trigger('change');
+        } else {
+          select.value = 'other';
+          $(select).trigger('change');
+          if (otherInput) {
+            otherInput.value = machine.name || '';
+          }
+        }
+      }
+
+      if (durationInput) {
+        durationInput.value = machine.duration_minutes ?? '';
+        durationInput.dataset.autofilled = 'false';
+      }
+
+      if (notesInput) {
+        notesInput.value = machine.notes ?? '';
+      }
+    });
+  }
+
   function clearCopiedSessionData() {
     const amountInput = document.getElementById('session_amount');
     if (amountInput) {
@@ -595,9 +709,14 @@ include '../../includes/header.php';
       additionalNotesInput.value = '';
     }
 
-    const container = resetExerciseContainer();
-    if (container) {
+    const exerciseContainer = resetExerciseContainer();
+    if (exerciseContainer) {
       addExercise();
+    }
+
+    const machineContainer = resetMachineContainer();
+    if (machineContainer) {
+      addMachine();
     }
   }
 
@@ -679,6 +798,116 @@ include '../../includes/header.php';
   function removeRow(btn) {
     btn.closest('.exercise-row').remove();
     updateExerciseOptions();
+  }
+
+  function resetMachineContainer() {
+    const container = document.getElementById('machineContainer');
+    if (!container) {
+      return null;
+    }
+    $(container).find('.machine-select').each(function () {
+      if ($(this).data('select2')) {
+        $(this).select2('destroy');
+      }
+    });
+    container.innerHTML = '';
+    return container;
+  }
+
+  function addMachine() {
+    const container = document.getElementById('machineContainer');
+    const row = document.createElement('div');
+    row.className = 'row g-2 align-items-end machine-row';
+
+    row.innerHTML = `
+      <div class="col-12 col-md-4">
+        <select name="machines_machine_id[]" class="form-select machine-select"></select>
+        <input type="text" name="new_machine_name[]" class="form-control mt-2 d-none other-machine-name" placeholder="Machine Name">
+      </div>
+      <div class="col-6 col-md-3">
+        <input type="number" name="machines_duration_minutes[]" class="form-control machine-duration-input" placeholder="Duration (min)">
+      </div>
+      <div class="col-12 col-md-4">
+        <input type="text" name="machines_notes[]" class="form-control machine-notes-input" placeholder="Notes">
+      </div>
+      <div class="col-12 col-md-1 text-md-center">
+        <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeMachineRow(this)">Remove</button>
+      </div>
+    `;
+
+    container.appendChild(row);
+    const durationInput = row.querySelector('.machine-duration-input');
+    if (durationInput) {
+      durationInput.addEventListener('input', () => {
+        durationInput.dataset.autofilled = 'false';
+      });
+    }
+    updateMachineOptions();
+  }
+
+  function updateMachineOptions() {
+    const selects = document.querySelectorAll('.machine-select');
+    selects.forEach(sel => {
+      const currentValue = sel.value;
+      $(sel).off('change.machine');
+      if ($(sel).data('select2')) {
+        $(sel).select2('destroy');
+      }
+      sel.innerHTML = '<option value="">-- Select Machine --</option>' +
+        machineMaster.map(machine => `<option value="${machine.id}" data-default-duration="${machine.default_duration_minutes ?? ''}">${machine.name}</option>`).join('') +
+        '<option value="other">Others</option>';
+      sel.value = currentValue;
+      $(sel).select2({width: '100%'});
+      $(sel).on('change.machine', function(){
+        handleMachineChange(this);
+      });
+      handleMachineChange(sel);
+    });
+  }
+
+  function handleMachineChange(sel) {
+    const row = sel.closest('.machine-row');
+    const isOther = sel.value === 'other';
+    const nameInput = row.querySelector('.other-machine-name');
+    const durationInput = row.querySelector('.machine-duration-input');
+
+    if (isOther) {
+      nameInput.classList.remove('d-none');
+      nameInput.required = true;
+    } else {
+      nameInput.classList.add('d-none');
+      nameInput.required = false;
+    }
+
+    if (durationInput) {
+      if (!isOther && sel.value) {
+        const option = sel.selectedOptions[0];
+        const defaultDuration = option ? option.getAttribute('data-default-duration') : '';
+        if (durationInput.value === '' || durationInput.dataset.autofilled === 'true') {
+          durationInput.value = defaultDuration || '';
+          durationInput.dataset.autofilled = 'true';
+        }
+      } else {
+        durationInput.dataset.autofilled = 'false';
+        if (durationInput.value === '' && isOther) {
+          durationInput.placeholder = 'Duration (min)';
+        }
+      }
+      durationInput.required = !!sel.value;
+    }
+  }
+
+  function removeMachineRow(btn) {
+    const row = btn.closest('.machine-row');
+    if (!row) {
+      return;
+    }
+    const select = row.querySelector('.machine-select');
+    if (select && $(select).data('select2')) {
+      $(select).select2('destroy');
+    }
+    row.remove();
+    updateMachineOptions();
   }
 
   function syncTherapistSelections() {
