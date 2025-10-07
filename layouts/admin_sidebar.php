@@ -27,6 +27,11 @@ $adminNavItems = [
         'matches' => ['manage_exercises.php'],
     ],
     [
+        'label' => 'Machines',
+        'href' => BASE_URL . '/views/admin/manage_machines.php',
+        'matches' => ['manage_machines.php'],
+    ],
+    [
         'label' => 'Referral Sources',
         'href' => BASE_URL . '/views/admin/manage_referrals.php',
         'matches' => ['manage_referrals.php'],
