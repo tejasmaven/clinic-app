@@ -90,6 +90,51 @@ foreach ($previousMachines as $machine) {
     $groupedSessions[$sid]['machines'][] = $machine;
 }
 
+$sessionsByYear = [];
+foreach ($groupedSessions as $session) {
+    $dateObj = DateTime::createFromFormat('Y-m-d', $session['session_date']);
+    if (!$dateObj) {
+        continue;
+    }
+
+    $yearKey = $dateObj->format('Y');
+    $monthKey = $dateObj->format('Y-m');
+    $dayKey = $dateObj->format('Y-m-d');
+
+    if (!isset($sessionsByYear[$yearKey])) {
+        $sessionsByYear[$yearKey] = [
+            'label' => $yearKey,
+            'months' => [],
+        ];
+    }
+
+    if (!isset($sessionsByYear[$yearKey]['months'][$monthKey])) {
+        $sessionsByYear[$yearKey]['months'][$monthKey] = [
+            'label' => $dateObj->format('F Y'),
+            'days' => [],
+        ];
+    }
+
+    if (!isset($sessionsByYear[$yearKey]['months'][$monthKey]['days'][$dayKey])) {
+        $sessionsByYear[$yearKey]['months'][$monthKey]['days'][$dayKey] = [
+            'label' => $dateObj->format('j M Y'),
+            'sessions' => [],
+        ];
+    }
+
+    $sessionsByYear[$yearKey]['months'][$monthKey]['days'][$dayKey]['sessions'][] = $session;
+}
+
+krsort($sessionsByYear);
+foreach ($sessionsByYear as &$yearData) {
+    krsort($yearData['months']);
+    foreach ($yearData['months'] as &$monthData) {
+        krsort($monthData['days']);
+    }
+    unset($monthData);
+}
+unset($yearData);
+
 $editSessionId = isset($_GET['edit_session_id']) ? (int) $_GET['edit_session_id'] : 0;
 $msg = null;
 
@@ -346,6 +391,27 @@ if ($isEditingSession) {
 
 include '../../includes/header.php';
 ?>
+<style>
+  .prev-session-year .accordion-button {
+    background-color: #e3f2fd;
+  }
+
+  .prev-session-month .accordion-button {
+    background-color: #e8f5e9;
+  }
+
+  .prev-session-day .accordion-button {
+    background-color: #fff3e0;
+  }
+
+  .nested-accordion {
+    margin-left: 1rem;
+  }
+
+  .session-detail-card {
+    background-color: #f9fbfd;
+  }
+</style>
 <div class="workspace-layout">
   <?php include '../../layouts/doctor_sidebar.php'; ?>
   <div class="workspace-content">
@@ -368,98 +434,137 @@ include '../../includes/header.php';
       <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
     <?php endif; ?>
 
-    <?php if (!empty($groupedSessions)): ?>
+    <?php if (!empty($sessionsByYear)): ?>
       <div class="app-card">
         <h5 class="mb-3">Previous Sessions</h5>
-        <div class="accordion" id="previousExercisesAccordion">
-          <?php $idx = 0; foreach ($groupedSessions as $session): $idx++; ?>
-            <?php
-              $currentSessionId = isset($session['session_id']) ? (int) $session['session_id'] : 0;
-              $isCurrentEditingSession = $isEditingSession && $editingSessionData && isset($editingSessionData['id']) && (int) $editingSessionData['id'] === $currentSessionId;
-            ?>
-            <div class="accordion-item<?= $isCurrentEditingSession ? ' border border-primary' : '' ?>">
-              <h2 class="accordion-header" id="heading<?= $idx ?>">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<?= $idx ?>" aria-expanded="false" aria-controls="collapse<?= $idx ?>">
-                  <?= htmlspecialchars(format_display_date($session['session_date'])) ?>
-                  <?php if ($isCurrentEditingSession): ?>
-                    <span class="badge bg-primary ms-2">Editing</span>
-                  <?php endif; ?>
+        <div class="accordion" id="previousSessionsAccordion">
+          <?php $yearIndex = 0; foreach ($sessionsByYear as $yearData): $yearIndex++; ?>
+            <div class="accordion-item prev-session-year">
+              <h2 class="accordion-header" id="yearHeading<?= $yearIndex ?>">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#yearCollapse<?= $yearIndex ?>" aria-expanded="false" aria-controls="yearCollapse<?= $yearIndex ?>">
+                  <?= htmlspecialchars($yearData['label']) ?>
                 </button>
               </h2>
-              <div id="collapse<?= $idx ?>" class="accordion-collapse collapse" aria-labelledby="heading<?= $idx ?>" data-bs-parent="#previousExercisesAccordion">
+              <div id="yearCollapse<?= $yearIndex ?>" class="accordion-collapse collapse" aria-labelledby="yearHeading<?= $yearIndex ?>" data-bs-parent="#previousSessionsAccordion">
                 <div class="accordion-body">
-                  <?php if (!empty($session['session_id'])): ?>
-                    <div class="d-flex justify-content-end flex-wrap gap-2 mb-3">
-                      <?php if ($isCurrentEditingSession): ?>
-                        <span class="badge bg-primary align-self-center">Currently editing</span>
-                      <?php else: ?>
-                        <a href="start_treatment.php?episode_id=<?= $episode_id ?>&patient_id=<?= $patient_id ?>&edit_session_id=<?= (int) $session['session_id'] ?>" class="btn btn-sm btn-outline-primary">Edit Session</a>
-                      <?php endif; ?>
-                      <form method="POST" class="delete-session-form">
-                        <input type="hidden" name="action" value="delete_session">
-                        <input type="hidden" name="session_id" value="<?= (int) $session['session_id'] ?>">
-                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete Session</button>
-                      </form>
-                    </div>
-                  <?php endif; ?>
-                  <?php if (!empty($session['primary_therapist_name'])): ?>
-                    <p class="mb-2"><strong>Primary Therapist:</strong> <?= htmlspecialchars($session['primary_therapist_name']) ?></p>
-                  <?php endif; ?>
-                  <?php if (!empty($session['secondary_therapist_name'])): ?>
-                    <p class="mb-2"><strong>Secondary Therapist:</strong> <?= htmlspecialchars($session['secondary_therapist_name']) ?></p>
-                  <?php endif; ?>
-                  <p class="mb-2"><strong>Doctor's Remarks:</strong> <?= htmlspecialchars($session['remarks']) ?></p>
-                  <p class="mb-2"><strong>Progress Notes:</strong> <?= htmlspecialchars($session['progress_notes']) ?></p>
-                  <p class="mb-2"><strong>Advise:</strong> <?= htmlspecialchars($session['advise']) ?></p>
-                  <?php if (!empty($session['additional_treatment_notes'])): ?>
-                    <p class="mb-3"><strong>Additional Treatment Notes:</strong> <?= htmlspecialchars($session['additional_treatment_notes']) ?></p>
-                  <?php endif; ?>
-                  <?php if (!empty($session['exercises'])): ?>
-                    <div class="table-responsive">
-                      <table class="table table-sm table-hover align-middle mb-0">
-                        <thead class="table-light">
-                          <tr>
-                            <th scope="col">Exercise</th>
-                            <th scope="col">Reps</th>
-                            <th scope="col">Duration</th>
-                            <th scope="col">Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <?php foreach ($session['exercises'] as $exercise): ?>
-                            <tr>
-                              <td><?= htmlspecialchars($exercise['name']) ?></td>
-                              <td><?= htmlspecialchars($exercise['reps']) ?></td>
-                              <td><?= htmlspecialchars($exercise['duration_minutes']) ?></td>
-                              <td><?= htmlspecialchars($exercise['notes']) ?></td>
-                            </tr>
-                          <?php endforeach; ?>
-                        </tbody>
-                      </table>
-                    </div>
-                  <?php endif; ?>
-                  <?php if (!empty($session['machines'])): ?>
-                    <div class="table-responsive mt-3">
-                      <table class="table table-sm table-hover align-middle mb-0">
-                        <thead class="table-light">
-                          <tr>
-                            <th scope="col">Machine</th>
-                            <th scope="col">Duration</th>
-                            <th scope="col">Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <?php foreach ($session['machines'] as $machine): ?>
-                            <tr>
-                              <td><?= htmlspecialchars($machine['name']) ?></td>
-                              <td><?= htmlspecialchars($machine['duration_minutes']) ?></td>
-                              <td><?= htmlspecialchars($machine['notes']) ?></td>
-                            </tr>
-                          <?php endforeach; ?>
-                        </tbody>
-                      </table>
-                    </div>
-                  <?php endif; ?>
+                  <div class="accordion nested-accordion" id="monthAccordion<?= $yearIndex ?>">
+                    <?php $monthIndex = 0; foreach ($yearData['months'] as $monthData): $monthIndex++; ?>
+                      <div class="accordion-item prev-session-month">
+                        <h2 class="accordion-header" id="monthHeading<?= $yearIndex ?>_<?= $monthIndex ?>">
+                          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#monthCollapse<?= $yearIndex ?>_<?= $monthIndex ?>" aria-expanded="false" aria-controls="monthCollapse<?= $yearIndex ?>_<?= $monthIndex ?>">
+                            <?= htmlspecialchars($monthData['label']) ?>
+                          </button>
+                        </h2>
+                        <div id="monthCollapse<?= $yearIndex ?>_<?= $monthIndex ?>" class="accordion-collapse collapse" aria-labelledby="monthHeading<?= $yearIndex ?>_<?= $monthIndex ?>" data-bs-parent="#monthAccordion<?= $yearIndex ?>">
+                          <div class="accordion-body">
+                            <div class="accordion nested-accordion" id="dayAccordion<?= $yearIndex ?>_<?= $monthIndex ?>">
+                              <?php $dayIndex = 0; foreach ($monthData['days'] as $dayData): $dayIndex++; ?>
+                                <div class="accordion-item prev-session-day">
+                                  <h2 class="accordion-header" id="dayHeading<?= $yearIndex ?>_<?= $monthIndex ?>_<?= $dayIndex ?>">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dayCollapse<?= $yearIndex ?>_<?= $monthIndex ?>_<?= $dayIndex ?>" aria-expanded="false" aria-controls="dayCollapse<?= $yearIndex ?>_<?= $monthIndex ?>_<?= $dayIndex ?>">
+                                      <?= htmlspecialchars($dayData['label']) ?>
+                                    </button>
+                                  </h2>
+                                  <div id="dayCollapse<?= $yearIndex ?>_<?= $monthIndex ?>_<?= $dayIndex ?>" class="accordion-collapse collapse" aria-labelledby="dayHeading<?= $yearIndex ?>_<?= $monthIndex ?>_<?= $dayIndex ?>" data-bs-parent="#dayAccordion<?= $yearIndex ?>_<?= $monthIndex ?>">
+                                    <div class="accordion-body">
+                                      <?php foreach ($dayData['sessions'] as $session): ?>
+                                        <?php
+                                          $currentSessionId = isset($session['session_id']) ? (int) $session['session_id'] : 0;
+                                          $isCurrentEditingSession = $isEditingSession && $editingSessionData && isset($editingSessionData['id']) && (int) $editingSessionData['id'] === $currentSessionId;
+                                          $sessionCardClasses = 'session-detail-card border rounded p-3 mb-3';
+
+                                          if ($isCurrentEditingSession) {
+                                              $sessionCardClasses .= ' border-primary';
+                                          }
+                                        ?>
+                                        <div class="<?= $sessionCardClasses ?>">
+                                          <?php if (!empty($session['session_id'])): ?>
+                                            <div class="d-flex justify-content-end flex-wrap gap-2 mb-3">
+                                              <?php if ($isCurrentEditingSession): ?>
+                                                <span class="badge bg-primary align-self-center">Currently editing</span>
+                                              <?php else: ?>
+                                                <a href="start_treatment.php?episode_id=<?= $episode_id ?>&patient_id=<?= $patient_id ?>&edit_session_id=<?= (int) $session['session_id'] ?>" class="btn btn-sm btn-outline-primary">Edit Session</a>
+                                              <?php endif; ?>
+                                              <form method="POST" class="delete-session-form">
+                                                <input type="hidden" name="action" value="delete_session">
+                                                <input type="hidden" name="session_id" value="<?= (int) $session['session_id'] ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete Session</button>
+                                              </form>
+                                            </div>
+                                          <?php endif; ?>
+                                          <?php if ($isCurrentEditingSession): ?>
+                                            <p class="mb-2 text-primary fw-semibold">Editing session dated <?= htmlspecialchars(format_display_date($session['session_date'])) ?></p>
+                                          <?php endif; ?>
+                                          <?php if (!empty($session['primary_therapist_name'])): ?>
+                                            <p class="mb-2"><strong>Primary Therapist:</strong> <?= htmlspecialchars($session['primary_therapist_name']) ?></p>
+                                          <?php endif; ?>
+                                          <?php if (!empty($session['secondary_therapist_name'])): ?>
+                                            <p class="mb-2"><strong>Secondary Therapist:</strong> <?= htmlspecialchars($session['secondary_therapist_name']) ?></p>
+                                          <?php endif; ?>
+                                          <p class="mb-2"><strong>Doctor's Remarks:</strong> <?= htmlspecialchars($session['remarks']) ?></p>
+                                          <p class="mb-2"><strong>Progress Notes:</strong> <?= htmlspecialchars($session['progress_notes']) ?></p>
+                                          <p class="mb-2"><strong>Advise:</strong> <?= htmlspecialchars($session['advise']) ?></p>
+                                          <?php if (!empty($session['additional_treatment_notes'])): ?>
+                                            <p class="mb-3"><strong>Additional Treatment Notes:</strong> <?= htmlspecialchars($session['additional_treatment_notes']) ?></p>
+                                          <?php endif; ?>
+                                          <?php if (!empty($session['exercises'])): ?>
+                                            <div class="table-responsive">
+                                              <table class="table table-sm table-hover align-middle mb-0">
+                                                <thead class="table-light">
+                                                  <tr>
+                                                    <th scope="col">Exercise</th>
+                                                    <th scope="col">Reps</th>
+                                                    <th scope="col">Duration</th>
+                                                    <th scope="col">Notes</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  <?php foreach ($session['exercises'] as $exercise): ?>
+                                                    <tr>
+                                                      <td><?= htmlspecialchars($exercise['name']) ?></td>
+                                                      <td><?= htmlspecialchars($exercise['reps']) ?></td>
+                                                      <td><?= htmlspecialchars($exercise['duration_minutes']) ?></td>
+                                                      <td><?= htmlspecialchars($exercise['notes']) ?></td>
+                                                    </tr>
+                                                  <?php endforeach; ?>
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          <?php endif; ?>
+                                          <?php if (!empty($session['machines'])): ?>
+                                            <div class="table-responsive mt-3">
+                                              <table class="table table-sm table-hover align-middle mb-0">
+                                                <thead class="table-light">
+                                                  <tr>
+                                                    <th scope="col">Machine</th>
+                                                    <th scope="col">Duration</th>
+                                                    <th scope="col">Notes</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  <?php foreach ($session['machines'] as $machine): ?>
+                                                    <tr>
+                                                      <td><?= htmlspecialchars($machine['name']) ?></td>
+                                                      <td><?= htmlspecialchars($machine['duration_minutes']) ?></td>
+                                                      <td><?= htmlspecialchars($machine['notes']) ?></td>
+                                                    </tr>
+                                                  <?php endforeach; ?>
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          <?php endif; ?>
+                                        </div>
+                                      <?php endforeach; ?>
+                                    </div>
+                                  </div>
+                                </div>
+                              <?php endforeach; ?>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    <?php endforeach; ?>
+                  </div>
                 </div>
               </div>
             </div>
