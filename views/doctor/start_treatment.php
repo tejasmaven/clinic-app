@@ -244,7 +244,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'file' => $_FILES['session_file'] ?? null,
             ];
 
-            $amount = isset($_POST['session_amount']) ? (float) $_POST['session_amount'] : 0.0;
+            // Doctors cannot alter session amount; force zero for all submissions.
+            $amount = 0.0;
 
             if ($action === 'update_session') {
                 $sessionId = isset($_POST['session_id']) ? (int) $_POST['session_id'] : 0;
@@ -371,8 +372,7 @@ if (isset($_POST['secondary_therapist_id'])) {
 
 $sessionDateValue = $_POST['session_date']
     ?? ($isEditingSession ? ($editingSessionData['session_date'] ?? date('Y-m-d')) : date('Y-m-d'));
-$sessionAmountValue = $_POST['session_amount']
-    ?? ($isEditingSession ? ($editingSessionData['amount'] ?? '') : '');
+$sessionAmountValue = '0';
 $remarksValue = $_POST['remarks']
     ?? ($isEditingSession ? ($editingSessionData['remarks'] ?? '') : '');
 $progressNotesValue = $_POST['progress_notes']
@@ -649,7 +649,8 @@ include '../../includes/header.php';
           </div>
           <div class="col-12 col-md-4">
             <label class="form-label" for="session_amount">Session Amount</label>
-            <input type="number" step="0.01" min="0" name="session_amount" id="session_amount" class="form-control" value="<?= htmlspecialchars($sessionAmountValue) ?>" required>
+            <input type="number" step="0.01" min="0" name="session_amount" id="session_amount" class="form-control" value="<?= htmlspecialchars($sessionAmountValue) ?>" readonly required>
+            <div class="form-text">Amount entry is disabled for doctors and will be recorded as 0.</div>
           </div>
           <div class="col-12 col-md-4">
             <label class="form-label" for="session_file">Upload File (optional)</label>
@@ -736,6 +737,7 @@ include '../../includes/header.php';
   const previousSessions = <?= json_encode($previousSessionsWithDetails, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const editingSession = <?= json_encode($editingSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const isEditingSession = Boolean(editingSession && editingSession.id);
+  const amountInput = document.getElementById('session_amount');
   const primaryTherapistSelect = document.getElementById('primary_therapist_id');
   const secondaryTherapistSelect = document.getElementById('secondary_therapist_id');
   const copyLastSessionInputs = document.querySelectorAll('input[name="copy_last_session"]');
@@ -743,6 +745,7 @@ include '../../includes/header.php';
   const copySessionDateWrapper = document.getElementById('copy_session_date_wrapper');
 
   document.addEventListener('DOMContentLoaded', () => {
+    lockSessionAmount();
     if (isEditingSession) {
       populateSessionForEditing(editingSession);
     } else {
@@ -766,6 +769,16 @@ include '../../includes/header.php';
     });
   }
 
+  function lockSessionAmount(previousAmount = null) {
+    if (!amountInput) {
+      return;
+    }
+
+    amountInput.readOnly = true;
+    const sanitizedAmount = Number(previousAmount) > 0 ? 0 : (Number.isFinite(Number(previousAmount)) ? Number(previousAmount) : 0);
+    amountInput.value = sanitizedAmount;
+  }
+
   function populateSessionForEditing(session) {
     if (!session) {
       addExercise();
@@ -778,10 +791,7 @@ include '../../includes/header.php';
       sessionDateInput.value = session.session_date;
     }
 
-    const amountInput = document.getElementById('session_amount');
-    if (amountInput) {
-      amountInput.value = session.amount ?? '';
-    }
+    lockSessionAmount(session.amount);
 
     if (primaryTherapistSelect) {
       primaryTherapistSelect.value = session.primary_therapist_id
@@ -908,10 +918,7 @@ include '../../includes/header.php';
       return;
     }
 
-    const amountInput = document.getElementById('session_amount');
-    if (amountInput) {
-      amountInput.value = session.amount ?? '';
-    }
+    lockSessionAmount(session.amount);
 
     if (primaryTherapistSelect) {
       primaryTherapistSelect.value = session.primary_therapist_id
@@ -1061,10 +1068,7 @@ include '../../includes/header.php';
   }
 
   function clearCopiedSessionData() {
-    const amountInput = document.getElementById('session_amount');
-    if (amountInput) {
-      amountInput.value = '';
-    }
+    lockSessionAmount();
     if (primaryTherapistSelect) {
       primaryTherapistSelect.value = '';
     }
