@@ -64,7 +64,7 @@ include '../../includes/header.php';
                     <tr>
                         <td><?= htmlspecialchars($p['first_name'] . ' ' . $p['last_name']) ?></td>
                         <td><?= htmlspecialchars($p['gender']) ?></td>
-                        <td><?= htmlspecialchars($p['date_of_birth']) ?></td>
+                        <td><?= htmlspecialchars(format_display_date($p['date_of_birth'])) ?></td>
                         <td><?= htmlspecialchars($p['contact_number']) ?></td>
                         <td><?= htmlspecialchars($p['referral_source']) ?></td>
                         <td class="text-end">

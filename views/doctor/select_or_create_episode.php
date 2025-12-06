@@ -70,7 +70,7 @@ include '../../includes/header.php';
           <?php foreach ($episodes as $ep): ?>
             <div class="list-group-item d-flex flex-column flex-md-row gap-2 justify-content-between align-items-md-center">
               <div>
-                <div class="fw-semibold">Started on <?= htmlspecialchars($ep['start_date']) ?></div>
+                <div class="fw-semibold">Started on <?= htmlspecialchars(format_display_date($ep['start_date'])) ?></div>
                 <div class="text-muted small"><?= htmlspecialchars($ep['initial_complaints']) ?></div>
               </div>
               <a class="btn btn-sm btn-primary" href="start_treatment.php?patient_id=<?= $patient_id ?>&episode_id=<?= $ep['id'] ?>">Log Session</a>

@@ -207,7 +207,7 @@ include '../../includes/header.php';
                   $noteDisplay = $pay['notes'] ? $pay['notes'] : '-';
                 ?>
                 <tr>
-                  <td><?= htmlspecialchars($pay['transaction_date']) ?></td>
+                  <td><?= htmlspecialchars(format_display_date($pay['transaction_date'])) ?></td>
                   <td><span class="badge <?= $typeClass ?>"><?= htmlspecialchars($type) ?></span></td>
                   <td>R <?= number_format((float) $pay['amount'], 2) ?></td>
                   <td><span class="badge <?= $statusClass ?>"><?= ucfirst(htmlspecialchars($pay['status'])) ?></span></td>

@@ -380,7 +380,7 @@ include '../../includes/header.php';
             <div class="accordion-item<?= $isCurrentEditingSession ? ' border border-primary' : '' ?>">
               <h2 class="accordion-header" id="heading<?= $idx ?>">
                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<?= $idx ?>" aria-expanded="false" aria-controls="collapse<?= $idx ?>">
-                  <?= htmlspecialchars($session['session_date']) ?>
+                  <?= htmlspecialchars(format_display_date($session['session_date'])) ?>
                   <?php if ($isCurrentEditingSession): ?>
                     <span class="badge bg-primary ms-2">Editing</span>
                   <?php endif; ?>
@@ -471,7 +471,7 @@ include '../../includes/header.php';
     <div class="app-card">
       <?php if ($isEditingSession && $editingSessionData): ?>
         <div class="alert alert-warning mb-3">
-          Editing session dated <?= htmlspecialchars($editingSessionData['session_date']) ?>.
+          Editing session dated <?= htmlspecialchars(format_display_date($editingSessionData['session_date'])) ?>.
         </div>
       <?php endif; ?>
       <form method="POST" enctype="multipart/form-data" class="d-flex flex-column gap-3">
