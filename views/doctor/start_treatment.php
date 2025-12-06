@@ -46,6 +46,7 @@ foreach ($therapists as $therapist) {
 $previousExercises = $treatmentController->getPreviousSessionExercises($patient_id, $episode_id);
 $previousMachines = $treatmentController->getPreviousSessionMachines($patient_id, $episode_id);
 $latestSessionData = $treatmentController->getLatestSessionWithDetails($patient_id, $episode_id);
+$previousSessionsWithDetails = $treatmentController->getSessionsWithDetails($patient_id, $episode_id);
 
 $groupedSessions = [];
 foreach ($previousExercises as $ex) {
@@ -380,13 +381,31 @@ $adviseValue = $_POST['advise']
     ?? ($isEditingSession ? ($editingSessionData['advise'] ?? '') : '');
 $additionalTreatmentNotesValue = $_POST['additional_treatment_notes']
     ?? ($isEditingSession ? ($editingSessionData['additional_treatment_notes'] ?? '') : '');
+$selectedCopySessionId = isset($_POST['copy_session_date']) ? (string) $_POST['copy_session_date'] : '';
+
+$availableSessionIds = array_map(static function ($session) {
+    return (string) $session['id'];
+}, $previousSessionsWithDetails);
+if ($selectedCopySessionId !== '' && !in_array($selectedCopySessionId, $availableSessionIds, true)) {
+    $selectedCopySessionId = '';
+}
 
 if ($isEditingSession) {
     $copyLastSessionValue = 'no';
 } else {
-    $copyLastSessionValue = (isset($_POST['copy_last_session']) && $_POST['copy_last_session'] === 'yes' && $latestSessionData)
-        ? 'yes'
-        : 'no';
+    $copyOption = $_POST['copy_last_session'] ?? 'no';
+    $validCopyOptions = ['yes', 'no', 'select'];
+    if (!in_array($copyOption, $validCopyOptions, true)) {
+        $copyOption = 'no';
+    }
+    if ($copyOption === 'yes' && !$latestSessionData) {
+        $copyOption = 'no';
+    }
+    if ($copyOption === 'select' && empty($previousSessionsWithDetails)) {
+        $copyOption = 'no';
+    }
+
+    $copyLastSessionValue = $copyOption;
 }
 
 include '../../includes/header.php';
@@ -597,11 +616,26 @@ include '../../includes/header.php';
                   <label class="form-check-label" for="copy_last_session_yes">Yes</label>
                 </div>
                 <div class="form-check form-check-inline">
-                  <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_no" value="no" <?= $copyLastSessionValue !== 'yes' ? 'checked' : '' ?>>
+                  <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_no" value="no" <?= $copyLastSessionValue === 'no' ? 'checked' : '' ?>>
                   <label class="form-check-label" for="copy_last_session_no">No</label>
                 </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_select" value="select" <?= $copyLastSessionValue === 'select' ? 'checked' : '' ?> <?= $previousSessionsWithDetails ? '' : 'disabled' ?>>
+                  <label class="form-check-label" for="copy_last_session_select">Copy from previous date</label>
+                </div>
               </div>
-              <?php if (!$latestSessionData): ?>
+              <div id="copy_session_date_wrapper" class="mt-2 <?= $copyLastSessionValue === 'select' ? '' : 'd-none' ?>">
+                <label class="form-label" for="copy_session_select">Select previous session date</label>
+                <select name="copy_session_date" id="copy_session_select" class="form-select" <?= $copyLastSessionValue === 'select' ? '' : 'disabled' ?> <?= $previousSessionsWithDetails ? '' : 'disabled' ?>>
+                  <option value="">Choose date</option>
+                  <?php foreach ($previousSessionsWithDetails as $sessionOption): ?>
+                    <option value="<?= (int) $sessionOption['id'] ?>" <?= ((string) $sessionOption['id'] === $selectedCopySessionId) ? 'selected' : '' ?>>
+                      <?= htmlspecialchars(format_display_date($sessionOption['session_date'])) ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <?php if (!$latestSessionData && empty($previousSessionsWithDetails)): ?>
                 <small class="text-muted">No previous session data available to copy.</small>
               <?php endif; ?>
             </div>
@@ -699,11 +733,14 @@ include '../../includes/header.php';
   const exerciseMaster = <?= json_encode($exercise_master) ?>;
   const machineMaster = <?= json_encode($machine_master) ?>;
   const latestSessionData = <?= json_encode($latestSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+  const previousSessions = <?= json_encode($previousSessionsWithDetails, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const editingSession = <?= json_encode($editingSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const isEditingSession = Boolean(editingSession && editingSession.id);
   const primaryTherapistSelect = document.getElementById('primary_therapist_id');
   const secondaryTherapistSelect = document.getElementById('secondary_therapist_id');
   const copyLastSessionInputs = document.querySelectorAll('input[name="copy_last_session"]');
+  const copySessionSelect = document.getElementById('copy_session_select');
+  const copySessionDateWrapper = document.getElementById('copy_session_date_wrapper');
 
   document.addEventListener('DOMContentLoaded', () => {
     if (isEditingSession) {
@@ -785,14 +822,59 @@ include '../../includes/header.php';
     }
 
     copyLastSessionInputs.forEach(input => {
-      input.addEventListener('change', event => {
-        if (event.target.value === 'yes' && event.target.checked) {
-          populateFromLastSession();
-        } else if (event.target.value === 'no' && event.target.checked) {
-          clearCopiedSessionData();
-        }
-      });
+      input.addEventListener('change', handleCopySelectionChange);
     });
+
+    if (copySessionSelect) {
+      copySessionSelect.addEventListener('change', populateFromSelectedSession);
+    }
+
+    handleCopySelectionChange();
+  }
+
+  function handleCopySelectionChange() {
+    const selected = document.querySelector('input[name="copy_last_session"]:checked');
+    const selectedValue = selected ? selected.value : 'no';
+    const showDropdown = selectedValue === 'select';
+
+    toggleCopySessionDropdown(showDropdown);
+
+    if (selectedValue === 'yes') {
+      populateFromLastSession();
+    } else if (selectedValue === 'select') {
+      populateFromSelectedSession();
+    } else {
+      clearCopiedSessionData();
+    }
+  }
+
+  function toggleCopySessionDropdown(show) {
+    if (!copySessionDateWrapper || !copySessionSelect) {
+      return;
+    }
+
+    if (show) {
+      copySessionDateWrapper.classList.remove('d-none');
+      copySessionSelect.removeAttribute('disabled');
+    } else {
+      copySessionDateWrapper.classList.add('d-none');
+      copySessionSelect.value = '';
+      copySessionSelect.setAttribute('disabled', 'disabled');
+    }
+  }
+
+  function populateFromSelectedSession() {
+    const selected = document.querySelector('input[name="copy_last_session"]:checked');
+    if (!selected || selected.value !== 'select' || !copySessionSelect || !copySessionSelect.value) {
+      return;
+    }
+
+    const sessionId = Number(copySessionSelect.value);
+    const sessionData = previousSessions.find(session => Number(session.id) === sessionId);
+
+    if (sessionData) {
+      populateFromSession(sessionData);
+    }
   }
 
   function setupDeleteSessionForms() {
@@ -821,47 +903,51 @@ include '../../includes/header.php';
     return container;
   }
 
-  function populateFromLastSession() {
-    if (!latestSessionData) {
+  function populateFromSession(session) {
+    if (!session) {
       return;
     }
 
     const amountInput = document.getElementById('session_amount');
     if (amountInput) {
-      amountInput.value = latestSessionData.amount ?? '';
+      amountInput.value = session.amount ?? '';
     }
 
     if (primaryTherapistSelect) {
-      primaryTherapistSelect.value = latestSessionData.primary_therapist_id
-        ? String(latestSessionData.primary_therapist_id)
+      primaryTherapistSelect.value = session.primary_therapist_id
+        ? String(session.primary_therapist_id)
         : '';
     }
     if (secondaryTherapistSelect) {
-      secondaryTherapistSelect.value = latestSessionData.secondary_therapist_id
-        ? String(latestSessionData.secondary_therapist_id)
+      secondaryTherapistSelect.value = session.secondary_therapist_id
+        ? String(session.secondary_therapist_id)
         : '';
     }
     syncTherapistSelections();
 
     const remarksInput = document.getElementById('remarks');
     if (remarksInput) {
-      remarksInput.value = latestSessionData.remarks ?? '';
+      remarksInput.value = session.remarks ?? '';
     }
     const progressNotesInput = document.getElementById('progress_notes');
     if (progressNotesInput) {
-      progressNotesInput.value = latestSessionData.progress_notes ?? '';
+      progressNotesInput.value = session.progress_notes ?? '';
     }
     const adviseInput = document.getElementById('advise');
     if (adviseInput) {
-      adviseInput.value = latestSessionData.advise ?? '';
+      adviseInput.value = session.advise ?? '';
     }
     const additionalNotesInput = document.getElementById('additional_treatment_notes');
     if (additionalNotesInput) {
-      additionalNotesInput.value = latestSessionData.additional_treatment_notes ?? '';
+      additionalNotesInput.value = session.additional_treatment_notes ?? '';
     }
 
-    populateExercises(latestSessionData.exercises || []);
-    populateMachines(latestSessionData.machines || []);
+    populateExercises(session.exercises || []);
+    populateMachines(session.machines || []);
+  }
+
+  function populateFromLastSession() {
+    populateFromSession(latestSessionData);
   }
 
   function populateExercises(exercises) {
