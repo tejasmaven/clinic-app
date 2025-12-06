@@ -242,6 +242,61 @@ class PaymentController {
         }
     }
 
+    public function bulkUpdateCharges($patientId, array $updates) {
+        if ($patientId <= 0) {
+            throw new InvalidArgumentException('Invalid patient ID provided for bulk update.');
+        }
+
+        $validUpdates = array_filter(array_map(function ($update) {
+            $id = isset($update['id']) ? (int) $update['id'] : 0;
+            $amount = isset($update['amount']) ? (float) $update['amount'] : 0.0;
+            $notes = array_key_exists('notes', $update) ? $update['notes'] : null;
+
+            if ($id <= 0 || $amount <= 0) {
+                return null;
+            }
+
+            return [
+                'id' => $id,
+                'amount' => $amount,
+                'notes' => $notes,
+            ];
+        }, $updates));
+
+        if (empty($validUpdates)) {
+            return 0;
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $updateStmt = $this->pdo->prepare(
+                "UPDATE patient_payment_ledger SET amount = :amount, notes = :notes, updated_at = NOW() WHERE id = :id"
+            );
+
+            foreach ($validUpdates as $update) {
+                $existing = $this->getPaymentById($update['id']);
+
+                if (!$existing || (int) $existing['patient_id'] !== $patientId || $existing['transaction_type'] !== 'charge') {
+                    throw new RuntimeException('Only charge entries for the patient can be edited in bulk.');
+                }
+
+                $updateStmt->bindValue(':id', $update['id'], PDO::PARAM_INT);
+                $updateStmt->bindValue(':amount', $update['amount']);
+                $this->bindNullable($updateStmt, ':notes', $update['notes'], PDO::PARAM_STR);
+                $updateStmt->execute();
+            }
+
+            $this->recalculateLedgerForPatient($patientId);
+
+            $this->pdo->commit();
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+
+        return count($validUpdates);
+    }
+
     private function recalculateLedgerForPatient($patientId) {
         $summary = $this->computeLedgerSummary($patientId, true);
         $this->upsertCreditBalance($patientId, $summary['credit']);
