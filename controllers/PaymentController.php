@@ -54,8 +54,12 @@ class PaymentController {
         $sessionReference = $data['session_reference'] ?? ($data['treatment_covered'] ?? null);
         $notes = $data['notes'] ?? null;
 
-        if ($patientId <= 0 || $amount <= 0) {
+        if ($patientId <= 0 || $amount < 0) {
             throw new InvalidArgumentException('Invalid payment data.');
+        }
+
+        if ($amount === 0.0 && $transactionType === 'payment') {
+            throw new InvalidArgumentException('Payment amount must be greater than zero.');
         }
 
         if (!in_array($transactionType, ['charge', 'payment'], true)) {

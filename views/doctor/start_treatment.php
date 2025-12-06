@@ -275,15 +275,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $previousSessionDate
                                 );
 
-                                if ($amount > 0) {
-                                    $paymentController->recordSessionPayment(
-                                        $data['patient_id'],
-                                        $data['episode_id'],
-                                        $data['session_date'],
-                                        $amount,
-                                        $sessionId
-                                    );
-                                }
+                                $paymentController->recordSessionPayment(
+                                    $data['patient_id'],
+                                    $data['episode_id'],
+                                    $data['session_date'],
+                                    $amount,
+                                    $sessionId
+                                );
                             } catch (Exception $e) {
                                 $msg = 'Session updated but payment update failed: ' . $e->getMessage();
                             }
@@ -305,18 +303,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (is_array($result) && !empty($result['success'])) {
                     $sessionId = isset($result['session_id']) ? (int) $result['session_id'] : null;
-                    if ($amount > 0) {
-                        try {
-                            $paymentController->recordSessionPayment(
-                                $data['patient_id'],
-                                $data['episode_id'],
-                                $data['session_date'],
-                                $amount,
-                                $sessionId
-                            );
-                        } catch (Exception $e) {
-                            $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
-                        }
+                    try {
+                        $paymentController->recordSessionPayment(
+                            $data['patient_id'],
+                            $data['episode_id'],
+                            $data['session_date'],
+                            $amount,
+                            $sessionId
+                        );
+                    } catch (Exception $e) {
+                        $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
                     }
 
                     if ($msg === null) {
