@@ -121,4 +121,106 @@ class PatientController {
         $stmt->execute(["%$search%"]);
         return $stmt->fetchColumn();
     }
+
+    public function deletePatient($patientId) {
+        $patientStmt = $this->pdo->prepare("SELECT id, first_name, last_name FROM patients WHERE id = ?");
+        $patientStmt->execute([$patientId]);
+        $patient = $patientStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$patient) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        try {
+            $this->pdo->beginTransaction();
+
+            // Fetch files before deletion for cleanup
+            $filesStmt = $this->pdo->prepare("SELECT file_name FROM file_master WHERE patient_id = ?");
+            $filesStmt->execute([$patientId]);
+            $files = $filesStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            // Delete financial records
+            $this->pdo->prepare("DELETE FROM patient_payment_ledger WHERE patient_id = ?")
+                ->execute([$patientId]);
+            $this->pdo->prepare("DELETE FROM patient_credit_balances WHERE patient_id = ?")
+                ->execute([$patientId]);
+
+            // Gather treatment episodes and sessions
+            $episodeStmt = $this->pdo->prepare("SELECT id FROM treatment_episodes WHERE patient_id = ?");
+            $episodeStmt->execute([$patientId]);
+            $episodeIds = $episodeStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            $sessionQuery = "SELECT id FROM treatment_sessions WHERE patient_id = ?";
+            $params = [$patientId];
+            if (!empty($episodeIds)) {
+                $placeholders = implode(', ', array_fill(0, count($episodeIds), '?'));
+                $sessionQuery .= " OR episode_id IN ($placeholders)";
+                $params = array_merge($params, $episodeIds);
+            }
+
+            $sessionStmt = $this->pdo->prepare($sessionQuery);
+            $sessionStmt->execute($params);
+            $sessionIds = $sessionStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!empty($sessionIds)) {
+                $sessionPlaceholders = implode(', ', array_fill(0, count($sessionIds), '?'));
+                $this->pdo->prepare("DELETE FROM treatment_exercises WHERE session_id IN ($sessionPlaceholders)")
+                    ->execute($sessionIds);
+                $this->pdo->prepare("DELETE FROM treatment_machines WHERE session_id IN ($sessionPlaceholders)")
+                    ->execute($sessionIds);
+
+                $this->pdo->prepare("DELETE FROM treatment_sessions WHERE id IN ($sessionPlaceholders)")
+                    ->execute($sessionIds);
+            } else {
+                // Ensure sessions tied by patient are cleared even if no IDs were found above
+                $this->pdo->prepare("DELETE FROM treatment_sessions WHERE patient_id = ?")
+                    ->execute([$patientId]);
+            }
+
+            if (!empty($episodeIds)) {
+                $episodePlaceholders = implode(', ', array_fill(0, count($episodeIds), '?'));
+                $this->pdo->prepare("DELETE FROM treatment_episodes WHERE id IN ($episodePlaceholders)")
+                    ->execute($episodeIds);
+            }
+
+            // Delete uploaded file records
+            $this->pdo->prepare("DELETE FROM file_master WHERE patient_id = ?")
+                ->execute([$patientId]);
+
+            // Delete patient record
+            $this->pdo->prepare("DELETE FROM patients WHERE id = ?")
+                ->execute([$patientId]);
+
+            $this->pdo->commit();
+
+            // Remove files from the filesystem after DB commit
+            if (!empty($files)) {
+                $uploadDir = dirname(__DIR__) . '/uploads/patient_docs/' . $patientId . '/';
+                foreach ($files as $fileName) {
+                    $filePath = $uploadDir . $fileName;
+                    if (is_file($filePath)) {
+                        @unlink($filePath);
+                    }
+                }
+
+                if (is_dir($uploadDir)) {
+                    @rmdir($uploadDir);
+                }
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Patient "' . $patient['first_name'] . ' ' . $patient['last_name'] . '" deleted successfully.'
+            ];
+        } catch (Exception $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Error deleting patient: ' . $e->getMessage()
+            ];
+        }
+    }
 }

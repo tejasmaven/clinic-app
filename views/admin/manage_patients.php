@@ -7,6 +7,15 @@ requireRole('Admin');
 require_once '../../controllers/PatientController.php';
 $controller = new PatientController($pdo);
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_patient') {
+    $patientId = (int) ($_POST['id'] ?? 0);
+    $result = $controller->deletePatient($patientId);
+    $flashType = $result['success'] ? 'success' : 'danger';
+    $msg = $result['message'] ?? 'Unable to delete patient.';
+    header('Location: manage_patients.php?msg=' . urlencode($msg) . '&type=' . $flashType);
+    exit;
+}
+
 // Pagination + Search Setup
 $search = $_GET['search'] ?? '';
 $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -16,6 +25,7 @@ $patients = $controller->getPatients($search, $page, $limit);
 $total = $controller->countPatients($search);
 $totalPages = (int) ceil($total / $limit);
 $flash = $_GET['msg'] ?? '';
+$flashType = $_GET['type'] ?? 'success';
 
 include '../../includes/header.php';
 ?>
@@ -32,7 +42,7 @@ include '../../includes/header.php';
         </div>
 
         <?php if (!empty($flash)): ?>
-            <div class="alert alert-success" role="alert"><?= htmlspecialchars($flash) ?></div>
+            <div class="alert alert-<?= htmlspecialchars($flashType) ?>" role="alert"><?= htmlspecialchars($flash) ?></div>
         <?php endif; ?>
 
         <div class="app-card">
@@ -72,6 +82,11 @@ include '../../includes/header.php';
                                 <a href="patient_form.php?id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-info">Edit</a>
                                 <a href="../shared/manage_payments.php?patient_id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-secondary">Payments</a>
                                 <a href="../shared/manage_patients_files.php?patient_id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-warning">View Files</a>
+                                <form method="POST" class="d-inline" onsubmit="return confirm('Delete this patient and all related records?');">
+                                    <input type="hidden" name="action" value="delete_patient">
+                                    <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
+                                    <button class="btn btn-sm btn-danger">Delete</button>
+                                </form>
                             </div>
                         </td>
                     </tr>
