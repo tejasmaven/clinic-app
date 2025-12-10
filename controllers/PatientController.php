@@ -257,4 +257,64 @@ class PatientController {
             ];
         }
     }
+
+    public function findPatientsByContactNumber(string $contactNumber): array {
+        $stmt = $this->pdo->prepare(
+            "SELECT id, first_name, last_name, contact_number FROM patients WHERE contact_number = ?"
+        );
+        $stmt->execute([$contactNumber]);
+
+        $patients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(static function (array $patient) {
+            $patient['id'] = (int) ($patient['id'] ?? 0);
+            return $patient;
+        }, $patients);
+    }
+
+    public function verifyPatientLogin(int $patientId, string $contactNumber, string $password): array {
+        $stmt = $this->pdo->prepare(
+            "SELECT id, first_name, last_name, password_hash FROM patients WHERE id = :id AND contact_number = :contact"
+        );
+        $stmt->execute([
+            ':id' => $patientId,
+            ':contact' => $contactNumber,
+        ]);
+
+        $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$patient) {
+            return ['success' => false, 'message' => 'Selected patient not found for this mobile number.'];
+        }
+
+        if (empty($patient['password_hash'])) {
+            return ['success' => false, 'message' => 'Password not set. Please contact the clinic.'];
+        }
+
+        if (!password_verify($password, $patient['password_hash'])) {
+            return ['success' => false, 'message' => 'Invalid password.'];
+        }
+
+        $patient['id'] = (int) $patient['id'];
+
+        return ['success' => true, 'patient' => $patient];
+    }
+
+    public function changePatientPassword(int $patientId, string $currentPassword, string $newPassword): array {
+        $stmt = $this->pdo->prepare(
+            "SELECT password_hash FROM patients WHERE id = ?"
+        );
+        $stmt->execute([$patientId]);
+        $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$patient) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        if (empty($patient['password_hash']) || !password_verify($currentPassword, $patient['password_hash'])) {
+            return ['success' => false, 'message' => 'Current password is incorrect.'];
+        }
+
+        return $this->updatePatientPassword($patientId, $newPassword);
+    }
 }

@@ -14,6 +14,7 @@ $roleDashboards = [
     'Admin' => BASE_URL . '/views/admin/index.php',
     'Doctor' => BASE_URL . '/views/dashboard/doctor_dashboard.php',
     'Receptionist' => BASE_URL . '/views/dashboard/receptionist_dashboard.php',
+    'Patient' => BASE_URL . '/views/patient/dashboard.php',
 ];
 
 $dashboardUrl = $roleDashboards[$currentRole] ?? BASE_URL . '/index.php';

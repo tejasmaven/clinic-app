@@ -3,17 +3,19 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-function requireLogin() {
+function requireLogin(?string $redirect = null) {
     if (empty($_SESSION['user_id'])) {
-        header("Location: ../login.php"); // Adjust path if needed
+        $redirectTo = $redirect ?? '../login.php';
+        header("Location: $redirectTo"); // Adjust path if needed
         exit;
     }
 }
 
-function requireRole($role) {
-    requireLogin();
+function requireRole($role, ?string $redirect = null) {
+    $redirectTo = $redirect ?? '../login.php';
+    requireLogin($redirectTo);
     if ($_SESSION['role'] !== $role) {
-        header("Location: ../login.php");
+        header("Location: $redirectTo");
         exit;
     }
 }
