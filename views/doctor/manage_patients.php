@@ -78,7 +78,6 @@ include '../../includes/header.php';
                   <div class="d-flex flex-wrap gap-1">
                     <a href="select_or_create_episode.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-primary">Start Treatment</a>
                     <a href="patient_form.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-primary">Edit</a>
-                    <a href="../shared/manage_payments.php?patient_id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-secondary">Payments</a>
                   </div>
                 </td>
               </tr>
