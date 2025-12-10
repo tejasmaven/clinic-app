@@ -18,6 +18,11 @@ $patientNavItems = [
         'matches' => ['history.php'],
     ],
     [
+        'label' => 'My Payments',
+        'href' => BASE_URL . '/views/patient/payments.php',
+        'matches' => ['payments.php'],
+    ],
+    [
         'label' => 'Change Password',
         'href' => BASE_URL . '/views/patient/change_password.php',
         'matches' => ['change_password.php'],

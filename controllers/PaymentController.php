@@ -30,6 +30,30 @@ class PaymentController {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getPaymentsByPatientPaginated($patientId, $limit = 10, $offset = 0) {
+        $limit = max(1, (int) $limit);
+        $offset = max(0, (int) $offset);
+
+        $countStmt = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM patient_payment_ledger WHERE patient_id = ?"
+        );
+        $countStmt->execute([(int) $patientId]);
+        $total = (int) $countStmt->fetchColumn();
+
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM patient_payment_ledger WHERE patient_id = :patient_id ORDER BY transaction_date DESC, id DESC LIMIT :limit OFFSET :offset"
+        );
+        $stmt->bindValue(':patient_id', (int) $patientId, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return [
+            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'total' => $total,
+        ];
+    }
+
     public function getPatientTotals($patientId) {
         $summary = $this->computeLedgerSummary($patientId, false);
 
