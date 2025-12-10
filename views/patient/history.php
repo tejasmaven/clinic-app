@@ -12,16 +12,6 @@ $episodeStmt = $pdo->prepare(
 $episodeStmt->execute([$patientId]);
 $episodes = $episodeStmt->fetchAll();
 
-$sessionStmt = $pdo->prepare(
-    "SELECT ts.id, ts.session_date, ts.remarks, ts.progress_notes, ts.advise, ts.additional_treatment_notes, ts.episode_id, te.status AS episode_status, te.initial_complaints
-     FROM treatment_sessions ts
-     LEFT JOIN treatment_episodes te ON ts.episode_id = te.id
-     WHERE ts.patient_id = ?
-     ORDER BY ts.session_date DESC, ts.id DESC"
-);
-$sessionStmt->execute([$patientId]);
-$sessions = $sessionStmt->fetchAll();
-
 include '../../includes/header.php';
 ?>
 <div class="workspace-layout">
@@ -30,7 +20,10 @@ include '../../includes/header.php';
         <div class="workspace-page-header">
             <div>
                 <h1 class="workspace-page-title">My History</h1>
-                <p class="workspace-page-subtitle">Review your treatment episodes and session notes.</p>
+                <p class="workspace-page-subtitle">Review your treatment episodes.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="episode_history.php" class="btn btn-outline-primary">Episodes History</a>
             </div>
         </div>
 
@@ -52,47 +45,6 @@ include '../../includes/header.php';
                                 </div>
                                 <span class="badge bg-light text-dark">Status: <?= htmlspecialchars($episode['status'] ?? 'N/A') ?></span>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <div class="app-card" id="sessions">
-            <h5 class="mb-3">Session Notes</h5>
-            <?php if (empty($sessions)): ?>
-                <p class="text-muted mb-0">No session records available.</p>
-            <?php else: ?>
-                <div class="list-group list-group-flush">
-                    <?php foreach ($sessions as $session): ?>
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between flex-wrap gap-2">
-                                <div>
-                                    <div class="fw-semibold">Session on <?= htmlspecialchars(format_display_date($session['session_date'] ?? '')) ?></div>
-                                    <?php if (!empty($session['episode_id'])): ?>
-                                        <div class="text-muted small">Episode #<?= (int) $session['episode_id'] ?> (<?= htmlspecialchars($session['episode_status'] ?? 'N/A') ?>)</div>
-                                    <?php endif; ?>
-                                </div>
-                                <?php if (!empty($session['advise'])): ?>
-                                    <span class="badge bg-primary-subtle text-primary">Advice Given</span>
-                                <?php endif; ?>
-                            </div>
-
-                            <?php if (!empty($session['remarks'])): ?>
-                                <p class="mb-1"><strong>Doctor's Remarks:</strong> <?= htmlspecialchars($session['remarks']) ?></p>
-                            <?php endif; ?>
-
-                            <?php if (!empty($session['progress_notes'])): ?>
-                                <p class="mb-1"><strong>Progress Notes:</strong> <?= htmlspecialchars($session['progress_notes']) ?></p>
-                            <?php endif; ?>
-
-                            <?php if (!empty($session['advise'])): ?>
-                                <p class="mb-1"><strong>Advice:</strong> <?= htmlspecialchars($session['advise']) ?></p>
-                            <?php endif; ?>
-
-                            <?php if (!empty($session['additional_treatment_notes'])): ?>
-                                <p class="mb-0"><strong>Additional Notes:</strong> <?= htmlspecialchars($session['additional_treatment_notes']) ?></p>
-                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 </div>
