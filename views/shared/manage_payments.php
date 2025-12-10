@@ -308,6 +308,14 @@ include '../../includes/header.php';
             <button type="button" class="btn btn-link btn-sm text-decoration-none d-none" id="cancelBulkEdit">Cancel</button>
           </div>
         </div>
+        <div class="alert alert-info d-none" id="bulkEditInstructions">
+          <div class="fw-semibold mb-1">Bulk fee edit enabled</div>
+          <ul class="mb-0 ps-3">
+            <li>Select the checkbox next to each charge you want to update.</li>
+            <li>Edit the fee or note fields for the selected rows.</li>
+            <li>Click <strong>Save Fee Updates</strong> to apply your changes.</li>
+          </ul>
+        </div>
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
@@ -507,6 +515,7 @@ include '../../includes/header.php';
     const cancelBtn = document.getElementById('cancelBulkEdit');
     const bulkModeInput = document.getElementById('bulkFeeModeInput');
     const bulkForm = document.getElementById('bulkFeeForm');
+    const bulkInstructions = document.getElementById('bulkEditInstructions');
     const startActive = bulkForm && bulkForm.getAttribute('data-start-active') === '1';
 
     function setBulkMode(active) {
@@ -542,6 +551,10 @@ include '../../includes/header.php';
           input.value = input.getAttribute('data-default') || '';
         }
       });
+
+      if (bulkInstructions) {
+        bulkInstructions.classList.toggle('d-none', !active);
+      }
     }
 
     if (toggleBtn) {
