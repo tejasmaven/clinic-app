@@ -139,20 +139,11 @@ include '../../includes/header.php';
         </div>
 
         <div class="app-card">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-2">
                 <div>
                     <h5 class="mb-1">Payment Ledger</h5>
                     <small class="text-muted">Read-only view of your charges and payments. Contact the clinic for billing questions.</small>
                 </div>
-                <form method="get" class="d-flex align-items-center gap-2">
-                    <label class="form-label mb-0" for="page_size">Rows per page</label>
-                    <input type="hidden" name="page" value="1">
-                    <select id="page_size" name="page_size" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <?php foreach ($pageSizeOptions as $option): ?>
-                            <option value="<?= $option ?>" <?= $pageSize === $option ? 'selected' : '' ?>><?= $option ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </form>
             </div>
 
             <div class="table-responsive">
@@ -317,11 +308,22 @@ include '../../includes/header.php';
                 $endItem = $totalPayments > 0 ? min($offset + $pageSize, $totalPayments) : 0;
                 $queryBase = http_build_query(['page_size' => $pageSize]);
             ?>
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                <div class="text-muted small">
-                    Showing <?= $startItem ?> to <?= $endItem ?> of <?= $totalPayments ?> entries
+            <div class="d-flex flex-column gap-3 mt-3">
+                <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center gap-2">
+                    <div class="text-muted small">
+                        Showing <?= $startItem ?> to <?= $endItem ?> of <?= $totalPayments ?> entries
+                    </div>
+                    <form method="get" class="d-flex flex-wrap align-items-center gap-2">
+                        <label class="form-label mb-0" for="page_size">Rows per page</label>
+                        <input type="hidden" name="page" value="1">
+                        <select id="page_size" name="page_size" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+                            <?php foreach ($pageSizeOptions as $option): ?>
+                                <option value="<?= $option ?>" <?= $pageSize === $option ? 'selected' : '' ?>><?= $option ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </form>
                 </div>
-                <nav>
+                <nav aria-label="Payment pagination" class="d-flex justify-content-center justify-content-md-end">
                     <ul class="pagination pagination-sm mb-0">
                         <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
                             <a class="page-link" href="?<?= $queryBase ?>&page=<?= max(1, $page - 1) ?>" aria-label="Previous">&laquo;</a>
