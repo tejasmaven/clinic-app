@@ -211,6 +211,15 @@ function resolveSessionsForPayment(array $payment, array $sessionLookupById, arr
 
 include '../../includes/header.php';
 ?>
+<style>
+  .session-detail-card {
+    background-color: #f9fbfd;
+  }
+
+  .exercise-toggle .exercise-indicator {
+    font-size: 0.85rem;
+  }
+</style>
 <div class="workspace-layout">
   <?php
     switch ($_SESSION['role']) {
@@ -358,7 +367,16 @@ include '../../includes/header.php';
                       <?php endif; ?>
                     </td>
                     <td>
-                      <button type="button" class="btn btn-sm btn-outline-info exercise-toggle" data-target="#<?= $detailRowId ?>">Exercises</button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-info d-flex align-items-center gap-2 exercise-toggle"
+                        data-target="#<?= $detailRowId ?>"
+                        aria-expanded="false"
+                        aria-controls="<?= $detailRowId ?>"
+                      >
+                        <span class="exercise-indicator">▼</span>
+                        <span>Exercises</span>
+                      </button>
                     </td>
                     <td class="text-nowrap">
                       <?php if ($pay['transaction_type'] === 'payment'): ?>
@@ -374,8 +392,8 @@ include '../../includes/header.php';
                       <?php if (!empty($matchingSessions)): ?>
                         <div class="d-flex flex-column gap-3">
                           <?php foreach ($matchingSessions as $session): ?>
-                            <div class="border rounded p-3">
-                              <div class="d-flex flex-wrap justify-content-between gap-2 align-items-center mb-2">
+                            <div class="session-detail-card border rounded p-3">
+                              <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-3">
                                 <div>
                                   <div class="fw-semibold">Episode #<?= htmlspecialchars($session['episode']['id'] ?? ($session['episode_id'] ?? '')) ?></div>
                                   <div class="text-muted small">Started <?= htmlspecialchars(format_display_date($session['episode']['start_date'] ?? $session['session_date'])) ?></div>
@@ -389,30 +407,45 @@ include '../../includes/header.php';
                                 <div class="text-end">
                                   <div class="fw-semibold">Session on <?= htmlspecialchars(format_display_date($session['session_date'])) ?></div>
                                   <?php if (!empty($session['remarks'])): ?>
-                                    <div class="text-muted small">Remarks: <?= htmlspecialchars($session['remarks']) ?></div>
+                                    <div class="text-muted small">Doctor's Remarks: <?= htmlspecialchars($session['remarks']) ?></div>
+                                  <?php endif; ?>
+                                  <?php if (!empty($session['progress_notes'])): ?>
+                                    <div class="text-muted small">Progress Notes: <?= htmlspecialchars($session['progress_notes']) ?></div>
                                   <?php endif; ?>
                                 </div>
                               </div>
+                              <?php if (!empty($session['advise'])): ?>
+                                <p class="mb-2"><strong>Advise:</strong> <?= htmlspecialchars($session['advise']) ?></p>
+                              <?php endif; ?>
+                              <?php if (!empty($session['additional_treatment_notes'])): ?>
+                                <p class="mb-3"><strong>Additional Treatment Notes:</strong> <?= htmlspecialchars($session['additional_treatment_notes']) ?></p>
+                              <?php endif; ?>
                               <div class="row g-3">
                                 <div class="col-12 col-md-6">
                                   <div class="fw-semibold mb-2">Exercises</div>
                                   <?php if (!empty($session['exercises'])): ?>
-                                    <ul class="mb-0 ps-3">
-                                      <?php foreach ($session['exercises'] as $exercise): ?>
-                                        <li class="mb-1">
-                                          <span class="fw-semibold"><?= htmlspecialchars($exercise['name'] ?: ($exercise['exercise_name'] ?? 'Exercise')) ?></span>
-                                          <?php if (!empty($exercise['reps'])): ?>
-                                            <span class="text-muted"> • Reps: <?= htmlspecialchars($exercise['reps']) ?></span>
-                                          <?php endif; ?>
-                                          <?php if (!empty($exercise['duration_minutes'])): ?>
-                                            <span class="text-muted"> • Duration: <?= htmlspecialchars($exercise['duration_minutes']) ?> min</span>
-                                          <?php endif; ?>
-                                          <?php if (!empty($exercise['notes'])): ?>
-                                            <div class="text-muted small">Notes: <?= htmlspecialchars($exercise['notes']) ?></div>
-                                          <?php endif; ?>
-                                        </li>
-                                      <?php endforeach; ?>
-                                    </ul>
+                                    <div class="table-responsive">
+                                      <table class="table table-sm table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                          <tr>
+                                            <th scope="col">Exercise</th>
+                                            <th scope="col">Reps</th>
+                                            <th scope="col">Duration</th>
+                                            <th scope="col">Notes</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          <?php foreach ($session['exercises'] as $exercise): ?>
+                                            <tr>
+                                              <td><?= htmlspecialchars($exercise['name'] ?: ($exercise['exercise_name'] ?? 'Exercise')) ?></td>
+                                              <td><?= htmlspecialchars($exercise['reps'] ?? '') ?></td>
+                                              <td><?= htmlspecialchars($exercise['duration_minutes'] ?? '') ?></td>
+                                              <td><?= htmlspecialchars($exercise['notes'] ?? '') ?></td>
+                                            </tr>
+                                          <?php endforeach; ?>
+                                        </tbody>
+                                      </table>
+                                    </div>
                                   <?php else: ?>
                                     <p class="text-muted mb-0">No exercises recorded for this session.</p>
                                   <?php endif; ?>
@@ -420,19 +453,26 @@ include '../../includes/header.php';
                                 <div class="col-12 col-md-6">
                                   <div class="fw-semibold mb-2">Machines</div>
                                   <?php if (!empty($session['machines'])): ?>
-                                    <ul class="mb-0 ps-3">
-                                      <?php foreach ($session['machines'] as $machine): ?>
-                                        <li class="mb-1">
-                                          <span class="fw-semibold"><?= htmlspecialchars($machine['name'] ?: ($machine['machine_name'] ?? 'Machine')) ?></span>
-                                          <?php if (!empty($machine['duration_minutes'])): ?>
-                                            <span class="text-muted"> • Duration: <?= htmlspecialchars($machine['duration_minutes']) ?> min</span>
-                                          <?php endif; ?>
-                                          <?php if (!empty($machine['notes'])): ?>
-                                            <div class="text-muted small">Notes: <?= htmlspecialchars($machine['notes']) ?></div>
-                                          <?php endif; ?>
-                                        </li>
-                                      <?php endforeach; ?>
-                                    </ul>
+                                    <div class="table-responsive">
+                                      <table class="table table-sm table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                          <tr>
+                                            <th scope="col">Machine</th>
+                                            <th scope="col">Duration</th>
+                                            <th scope="col">Notes</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          <?php foreach ($session['machines'] as $machine): ?>
+                                            <tr>
+                                              <td><?= htmlspecialchars($machine['name'] ?: ($machine['machine_name'] ?? 'Machine')) ?></td>
+                                              <td><?= htmlspecialchars($machine['duration_minutes'] ?? '') ?></td>
+                                              <td><?= htmlspecialchars($machine['notes'] ?? '') ?></td>
+                                            </tr>
+                                          <?php endforeach; ?>
+                                        </tbody>
+                                      </table>
+                                    </div>
                                   <?php else: ?>
                                     <p class="text-muted mb-0">No machines recorded for this session.</p>
                                   <?php endif; ?>
@@ -522,6 +562,14 @@ include '../../includes/header.php';
       setBulkMode(false);
     }
 
+    function updateToggleIndicator(button, expanded) {
+      button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      const indicator = button.querySelector('.exercise-indicator');
+      if (indicator) {
+        indicator.textContent = expanded ? '▲' : '▼';
+      }
+    }
+
     document.querySelectorAll('.exercise-toggle').forEach(function (btn) {
       btn.addEventListener('click', function () {
         const targetSelector = btn.getAttribute('data-target');
@@ -530,16 +578,21 @@ include '../../includes/header.php';
           return;
         }
 
+        const shouldOpen = target.style.display === 'none' || target.style.display === '';
+
         document.querySelectorAll('.exercise-detail-row').forEach(function (row) {
-          if (row !== target) {
-            row.style.display = 'none';
-          }
+          row.style.display = 'none';
         });
 
-        if (target.style.display === 'none' || target.style.display === '') {
+        document.querySelectorAll('.exercise-toggle').forEach(function (button) {
+          button.classList.remove('active');
+          updateToggleIndicator(button, false);
+        });
+
+        if (shouldOpen) {
           target.style.display = 'table-row';
-        } else {
-          target.style.display = 'none';
+          btn.classList.add('active');
+          updateToggleIndicator(btn, true);
         }
       });
     });
