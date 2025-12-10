@@ -223,4 +223,38 @@ class PatientController {
             ];
         }
     }
+
+    public function updatePatientPassword(int $patientId, string $password): array {
+        $patient = $this->getPatientById($patientId);
+
+        if (!$patient) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE patients SET password_hash = :password_hash, updated_at = NOW() WHERE id = :id"
+            );
+            $stmt->execute([
+                ':password_hash' => $passwordHash,
+                ':id' => $patientId,
+            ]);
+
+            $hadPassword = !empty($patient['password_hash']);
+            $message = $hadPassword ? 'Password updated successfully.' : 'Password created successfully.';
+
+            return [
+                'success' => true,
+                'message' => $message,
+                'hadPassword' => $hadPassword,
+            ];
+        } catch (PDOException $e) {
+            return [
+                'success' => false,
+                'message' => 'Unable to update password: ' . $e->getMessage(),
+            ];
+        }
+    }
 }
