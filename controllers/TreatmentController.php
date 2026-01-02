@@ -650,8 +650,12 @@ class TreatmentController {
                 ts.advise,
                 ts.additional_treatment_notes,
                 ts.primary_therapist_id,
-                ts.secondary_therapist_id
+                ts.secondary_therapist_id,
+                primary_user.name AS primary_therapist_name,
+                secondary_user.name AS secondary_therapist_name
             FROM treatment_sessions ts
+            LEFT JOIN users primary_user ON ts.primary_therapist_id = primary_user.id
+            LEFT JOIN users secondary_user ON ts.secondary_therapist_id = secondary_user.id
             WHERE ts.patient_id = ? AND ts.episode_id = ?
             ORDER BY ts.session_date DESC, ts.id DESC
         ");

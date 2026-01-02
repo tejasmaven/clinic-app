@@ -157,12 +157,13 @@ include '../../includes/header.php';
                                     <div class="accordion-body">
                                       <?php foreach ($dayData['sessions'] as $session): ?>
                                         <div class="session-detail-card border rounded p-3 mb-3">
-                                          <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+                                          <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
                                             <div>
-                                              <div class="fw-semibold">Episode #<?= (int) $session['episode']['id'] ?> (<?= htmlspecialchars($session['episode']['status']) ?>)</div>
-                                              <div class="text-muted small">Started <?= htmlspecialchars(format_display_date($session['episode']['start_date'] ?? '')) ?></div>
-                                              <?php if (!empty($session['episode']['initial_complaints'])): ?>
-                                                <div class="text-muted small">Notes: <?= htmlspecialchars($session['episode']['initial_complaints']) ?></div>
+                                              <div class="fw-semibold">
+                                                Doctor: <?= htmlspecialchars($session['primary_therapist_name'] ?? 'Not assigned') ?>
+                                              </div>
+                                              <?php if (!empty($session['secondary_therapist_name'])): ?>
+                                                <div class="text-muted small">Assistant: <?= htmlspecialchars($session['secondary_therapist_name']) ?></div>
                                               <?php endif; ?>
                                             </div>
                                             <?php if (!empty($session['amount'])): ?>
@@ -172,47 +173,53 @@ include '../../includes/header.php';
                                             <?php endif; ?>
                                           </div>
 
-                                          <?php if (!empty($session['remarks'])): ?>
-                                            <p class="mb-2"><strong>Doctor's Remarks:</strong> <?= htmlspecialchars($session['remarks']) ?></p>
-                                          <?php endif; ?>
-                                          <?php if (!empty($session['progress_notes'])): ?>
-                                            <p class="mb-2"><strong>Progress Notes:</strong> <?= htmlspecialchars($session['progress_notes']) ?></p>
-                                          <?php endif; ?>
-                                          <?php if (!empty($session['advise'])): ?>
-                                            <p class="mb-2"><strong>Advice:</strong> <?= htmlspecialchars($session['advise']) ?></p>
-                                          <?php endif; ?>
-                                          <?php if (!empty($session['additional_treatment_notes'])): ?>
-                                            <p class="mb-3"><strong>Additional Notes:</strong> <?= htmlspecialchars($session['additional_treatment_notes']) ?></p>
-                                          <?php endif; ?>
-
                                           <?php if (!empty($session['exercises'])): ?>
                                             <div class="mb-3">
                                               <p class="fw-semibold mb-2">Exercises</p>
-                                              <ul class="mb-0">
-                                                <?php foreach ($session['exercises'] as $exercise): ?>
-                                                  <li>
-                                                    <?= htmlspecialchars($exercise['name']) ?>
-                                                    <?php if (!empty($exercise['reps'])): ?> - <?= htmlspecialchars($exercise['reps']) ?> reps<?php endif; ?>
-                                                    <?php if (!empty($exercise['duration_minutes'])): ?> (<?= htmlspecialchars($exercise['duration_minutes']) ?> mins)<?php endif; ?>
-                                                    <?php if (!empty($exercise['notes'])): ?> — <?= htmlspecialchars($exercise['notes']) ?><?php endif; ?>
-                                                  </li>
-                                                <?php endforeach; ?>
-                                              </ul>
+                                              <div class="table-responsive">
+                                                <table class="table table-sm mb-0">
+                                                  <thead class="table-light">
+                                                    <tr>
+                                                      <th scope="col">Exercise</th>
+                                                      <th scope="col">Reps</th>
+                                                      <th scope="col">Duration (mins)</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    <?php foreach ($session['exercises'] as $exercise): ?>
+                                                      <tr>
+                                                        <td><?= htmlspecialchars($exercise['name']) ?></td>
+                                                        <td><?= htmlspecialchars($exercise['reps'] ?? '-') ?></td>
+                                                        <td><?= htmlspecialchars($exercise['duration_minutes'] ?? '-') ?></td>
+                                                      </tr>
+                                                    <?php endforeach; ?>
+                                                  </tbody>
+                                                </table>
+                                              </div>
                                             </div>
                                           <?php endif; ?>
 
                                           <?php if (!empty($session['machines'])): ?>
                                             <div class="mb-0">
                                               <p class="fw-semibold mb-2">Machines</p>
-                                              <ul class="mb-0">
-                                                <?php foreach ($session['machines'] as $machine): ?>
-                                                  <li>
-                                                    <?= htmlspecialchars($machine['name']) ?>
-                                                    <?php if (!empty($machine['duration_minutes'])): ?> (<?= htmlspecialchars($machine['duration_minutes']) ?> mins)<?php endif; ?>
-                                                    <?php if (!empty($machine['notes'])): ?> — <?= htmlspecialchars($machine['notes']) ?><?php endif; ?>
-                                                  </li>
-                                                <?php endforeach; ?>
-                                              </ul>
+                                              <div class="table-responsive">
+                                                <table class="table table-sm mb-0">
+                                                  <thead class="table-light">
+                                                    <tr>
+                                                      <th scope="col">Machine</th>
+                                                      <th scope="col">Duration (mins)</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    <?php foreach ($session['machines'] as $machine): ?>
+                                                      <tr>
+                                                        <td><?= htmlspecialchars($machine['name']) ?></td>
+                                                        <td><?= htmlspecialchars($machine['duration_minutes'] ?? '-') ?></td>
+                                                      </tr>
+                                                    <?php endforeach; ?>
+                                                  </tbody>
+                                                </table>
+                                              </div>
                                             </div>
                                           <?php endif; ?>
                                         </div>
