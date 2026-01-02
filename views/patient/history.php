@@ -22,9 +22,6 @@ include '../../includes/header.php';
                 <h1 class="workspace-page-title">My History</h1>
                 <p class="workspace-page-subtitle">Review your treatment episodes.</p>
             </div>
-            <div class="d-flex gap-2">
-                <a href="episode_history.php" class="btn btn-outline-primary">Episodes History</a>
-            </div>
         </div>
 
         <div class="app-card mb-4" id="episodes">
@@ -32,21 +29,36 @@ include '../../includes/header.php';
             <?php if (empty($episodes)): ?>
                 <p class="text-muted mb-0">No treatment episodes found.</p>
             <?php else: ?>
-                <div class="list-group list-group-flush">
-                    <?php foreach ($episodes as $episode): ?>
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                                <div>
-                                    <div class="fw-semibold">Episode #<?= (int) $episode['id'] ?></div>
-                                    <div class="text-muted small">Started <?= htmlspecialchars(format_display_date($episode['start_date'] ?? '')) ?></div>
-                                    <?php if (!empty($episode['initial_complaints'])): ?>
-                                        <div class="text-muted small">Notes: <?= htmlspecialchars($episode['initial_complaints']) ?></div>
-                                    <?php endif; ?>
-                                </div>
-                                <span class="badge bg-light text-dark">Status: <?= htmlspecialchars($episode['status'] ?? 'N/A') ?></span>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Start Date</th>
+                                <th scope="col">Notes</th>
+                                <th scope="col" class="text-end">View History</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($episodes as $episode): ?>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold"><?= htmlspecialchars(format_display_date($episode['start_date'] ?? '')) ?></div>
+                                        <div class="text-muted small">Episode #<?= (int) $episode['id'] ?></div>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($episode['initial_complaints'])): ?>
+                                            <?= htmlspecialchars($episode['initial_complaints']) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">No notes recorded.</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end">
+                                        <a class="btn btn-sm btn-outline-primary" href="episode_history.php?episode_id=<?= (int) $episode['id'] ?>">View History</a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             <?php endif; ?>
         </div>

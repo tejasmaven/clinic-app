@@ -7,13 +7,21 @@ require_once '../../controllers/TreatmentController.php';
 requireRole('Patient', 'login.php');
 
 $patientId = (int) ($_SESSION['patient_id'] ?? $_SESSION['user_id'] ?? 0);
+$episodeIdFilter = (int) ($_GET['episode_id'] ?? 0);
 
 $treatmentController = new TreatmentController($pdo);
 
-$episodeStmt = $pdo->prepare(
-    "SELECT id, start_date, status, initial_complaints FROM treatment_episodes WHERE patient_id = ? ORDER BY start_date DESC, id DESC"
-);
-$episodeStmt->execute([$patientId]);
+$episodeQuery = "SELECT id, start_date, status, initial_complaints FROM treatment_episodes WHERE patient_id = ?";
+$episodeParams = [$patientId];
+
+if ($episodeIdFilter > 0) {
+    $episodeQuery .= " AND id = ?";
+    $episodeParams[] = $episodeIdFilter;
+}
+
+$episodeQuery .= " ORDER BY start_date DESC, id DESC";
+$episodeStmt = $pdo->prepare($episodeQuery);
+$episodeStmt->execute($episodeParams);
 $episodes = $episodeStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $sessionsByYear = [];
@@ -103,7 +111,9 @@ include '../../includes/header.php';
     <div class="workspace-page-header">
       <div>
         <h1 class="workspace-page-title">Episodes History</h1>
-        <p class="workspace-page-subtitle">Browse all your treatment sessions grouped by year, month, and date.</p>
+        <p class="workspace-page-subtitle">
+          <?= $episodeIdFilter > 0 ? 'Review your selected episode sessions.' : 'Browse all your treatment sessions grouped by year, month, and date.' ?>
+        </p>
       </div>
       <div class="d-flex gap-2">
         <a href="history.php" class="btn btn-outline-secondary">Back to Episodes</a>
