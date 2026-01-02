@@ -30,8 +30,37 @@ class PatientController {
         $errors[] = "You can upload a maximum of 5 files.";
     }
 
+    $referralSource = $data['referral_source'] ?? '';
+    if ($referralSource === '__other__') {
+        $otherName = trim($data['referral_source_other_name'] ?? '');
+        $otherType = $data['referral_source_other_type'] ?? '';
+
+        if ($otherName === '') {
+            $errors[] = "Referral name is required.";
+        }
+        if ($otherType === '') {
+            $errors[] = "Referral type is required.";
+        }
+    }
+
     if (!empty($errors)) {
         return implode("<br>", $errors);
+    }
+
+    if ($referralSource === '__other__') {
+        $otherName = trim($data['referral_source_other_name'] ?? '');
+        $otherType = $data['referral_source_other_type'] ?? '';
+
+        $stmtReferral = $this->pdo->prepare("SELECT id FROM referral_sources WHERE name = ?");
+        $stmtReferral->execute([$otherName]);
+        $existingReferral = $stmtReferral->fetch(PDO::FETCH_ASSOC);
+
+        if (!$existingReferral) {
+            $stmtInsertReferral = $this->pdo->prepare("INSERT INTO referral_sources (name, type) VALUES (?, ?)");
+            $stmtInsertReferral->execute([$otherName, $otherType]);
+        }
+
+        $data['referral_source'] = $otherName;
     }
 
     $sqlFields = [

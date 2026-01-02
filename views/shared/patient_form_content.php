@@ -57,6 +57,13 @@
 
   <!-- Step 3 -->
   <div class="tab-pane fade" id="step3">
+    <?php
+      $referralNames = array_map(function ($referral) {
+        return $referral['name'];
+      }, $referrals ?? []);
+      $currentReferral = $patient['referral_source'] ?? '';
+      $useReferralOther = $currentReferral !== '' && !in_array($currentReferral, $referralNames, true);
+    ?>
     <div class="row g-3">
       <div class="col-md-6"><label>Referral Source</label>
         <select name="referral_source" class="form-select">
@@ -65,6 +72,20 @@
             <option value="<?= htmlspecialchars($r['name']) ?>" <?= isset($patient['referral_source']) && $patient['referral_source'] == $r['name'] ? 'selected' : '' ?>>
               <?= htmlspecialchars($r['name']) ?>
             </option>
+          <?php endforeach; ?>
+          <option value="__other__" <?= $useReferralOther ? 'selected' : '' ?>>Others</option>
+        </select>
+      </div>
+      <div class="col-md-6 d-none" id="referralOtherFields">
+        <label>Referral Name</label>
+        <input type="text" name="referral_source_other_name" class="form-control" value="<?= $useReferralOther ? htmlspecialchars($currentReferral) : '' ?>">
+      </div>
+      <div class="col-md-6 d-none" id="referralOtherTypeField">
+        <label>Referral Type</label>
+        <select name="referral_source_other_type" class="form-select">
+          <option value="">Select type</option>
+          <?php foreach (['Doctor', 'Hospital', 'Person', 'Other'] as $referralType): ?>
+            <option value="<?= $referralType ?>"><?= $referralType ?></option>
           <?php endforeach; ?>
         </select>
       </div>
@@ -148,6 +169,11 @@ const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
 const reportsInput = document.getElementById('reports');
+const referralSelect = document.querySelector('select[name="referral_source"]');
+const referralOtherFields = document.getElementById('referralOtherFields');
+const referralOtherTypeField = document.getElementById('referralOtherTypeField');
+const referralOtherNameInput = document.querySelector('input[name="referral_source_other_name"]');
+const referralOtherTypeSelect = document.querySelector('select[name="referral_source_other_type"]');
 
 function showTab(n) {
   tabs.forEach((t, i) => {
@@ -186,5 +212,27 @@ if (reportsInput) {
       this.value = '';
     }
   });
+}
+
+function toggleReferralOtherFields() {
+  if (!referralSelect) return;
+  const showOther = referralSelect.value === '__other__';
+  if (referralOtherFields) {
+    referralOtherFields.classList.toggle('d-none', !showOther);
+  }
+  if (referralOtherTypeField) {
+    referralOtherTypeField.classList.toggle('d-none', !showOther);
+  }
+  if (referralOtherNameInput) {
+    referralOtherNameInput.required = showOther;
+  }
+  if (referralOtherTypeSelect) {
+    referralOtherTypeSelect.required = showOther;
+  }
+}
+
+if (referralSelect) {
+  referralSelect.addEventListener('change', toggleReferralOtherFields);
+  toggleReferralOtherFields();
 }
 </script>
