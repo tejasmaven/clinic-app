@@ -144,8 +144,13 @@ class TreatmentController {
                 $original = $data['file']['name'];
                 $safeName = time() . '_' . preg_replace('/[^A-Za-z0-9.\-_]/', '_', $original);
                 move_uploaded_file($data['file']['tmp_name'], $uploadDir . $safeName);
-                $stmtFile = $this->pdo->prepare("INSERT INTO file_master (patient_id, file_name, upload_date) VALUES (:pid, :fname, NOW())");
-                $stmtFile->execute([':pid' => $data['patient_id'], ':fname' => $safeName]);
+                $stmtFile = $this->pdo->prepare("INSERT INTO file_master (patient_id, file_name, file_type_id, treatment_session_id, upload_date) VALUES (:pid, :fname, :file_type_id, :session_id, NOW())");
+                $stmtFile->execute([
+                    ':pid' => $data['patient_id'],
+                    ':fname' => $safeName,
+                    ':file_type_id' => $data['file_type_id'] ?? null,
+                    ':session_id' => $session_id,
+                ]);
             }
             /*if (!empty($data['exercises'])) {
                 foreach ($data['exercises'] as $exercise) {
@@ -306,6 +311,9 @@ class TreatmentController {
                 'notes' => $row['notes'],
             ];
         }, $machineRows);
+
+        $sessionFiles = $this->getFilesForSessionIds([$session['id']]);
+        $session['files'] = $sessionFiles[(int) $session['id']] ?? [];
 
         return $session;
     }
@@ -501,9 +509,14 @@ class TreatmentController {
                 $safeName = time() . '_' . preg_replace('/[^A-Za-z0-9.\-_]/', '_', $original);
                 move_uploaded_file($data['file']['tmp_name'], $uploadDir . $safeName);
                 $stmtFile = $this->pdo->prepare(
-                    "INSERT INTO file_master (patient_id, file_name, upload_date) VALUES (:pid, :fname, NOW())"
+                    "INSERT INTO file_master (patient_id, file_name, file_type_id, treatment_session_id, upload_date) VALUES (:pid, :fname, :file_type_id, :session_id, NOW())"
                 );
-                $stmtFile->execute([':pid' => $data['patient_id'], ':fname' => $safeName]);
+                $stmtFile->execute([
+                    ':pid' => $data['patient_id'],
+                    ':fname' => $safeName,
+                    ':file_type_id' => $data['file_type_id'] ?? null,
+                    ':session_id' => $sessionId,
+                ]);
             }
 
             $this->pdo->commit();
@@ -637,7 +650,46 @@ class TreatmentController {
             ];
         }, $machineRows);
 
+        $sessionFiles = $this->getFilesForSessionIds([$session['id']]);
+        $session['files'] = $sessionFiles[(int) $session['id']] ?? [];
+
         return $session;
+    }
+
+    private function getFilesForSessionIds(array $sessionIds) {
+        $sessionIds = array_values(array_unique(array_filter(array_map('intval', $sessionIds))));
+        if (empty($sessionIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($sessionIds), '?'));
+        $stmt = $this->pdo->prepare(
+            "SELECT fm.file_id, fm.patient_id, fm.file_name, fm.file_type_id, fm.treatment_session_id, fm.upload_date, prft.name AS file_type_name"
+            . " FROM file_master fm"
+            . " LEFT JOIN patient_report_file_types prft ON prft.id = fm.file_type_id"
+            . " WHERE fm.treatment_session_id IN ($placeholders)"
+            . " ORDER BY fm.upload_date DESC, fm.file_id DESC"
+        );
+        $stmt->execute($sessionIds);
+
+        $filesBySession = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $file) {
+            $sessionId = (int) $file['treatment_session_id'];
+            if (!isset($filesBySession[$sessionId])) {
+                $filesBySession[$sessionId] = [];
+            }
+
+            $filesBySession[$sessionId][] = [
+                'file_id' => (int) $file['file_id'],
+                'patient_id' => (int) $file['patient_id'],
+                'file_name' => $file['file_name'],
+                'file_type_id' => $file['file_type_id'] !== null ? (int) $file['file_type_id'] : null,
+                'file_type_name' => $file['file_type_name'],
+                'upload_date' => $file['upload_date'],
+            ];
+        }
+
+        return $filesBySession;
     }
 
     public function getSessionsWithDetails($patient_id, $episode_id) {
@@ -731,7 +783,15 @@ class TreatmentController {
                 'amount' => null,
                 'exercises' => [],
                 'machines' => [],
+                'files' => [],
             ];
+        }
+
+        $filesBySession = $this->getFilesForSessionIds($sessionIdList);
+        foreach ($filesBySession as $sessionId => $files) {
+            if (isset($sessionMap[$sessionId])) {
+                $sessionMap[$sessionId]['files'] = $files;
+            }
         }
 
         foreach ($exerciseRows as $row) {
