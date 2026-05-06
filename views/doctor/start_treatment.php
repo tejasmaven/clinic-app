@@ -38,6 +38,11 @@ $therapistStmt = $pdo->prepare("
 ");
 $therapistStmt->execute();
 $therapists = $therapistStmt->fetchAll(PDO::FETCH_ASSOC);
+$patientReportFileTypes = $patientController->getPatientReportFileTypes();
+$patientReportFileTypeMap = [];
+foreach ($patientReportFileTypes as $fileType) {
+    $patientReportFileTypeMap[(int) $fileType['id']] = $fileType['name'];
+}
 
 $therapistMap = [];
 foreach ($therapists as $therapist) {
@@ -47,6 +52,10 @@ $previousExercises = $treatmentController->getPreviousSessionExercises($patient_
 $previousMachines = $treatmentController->getPreviousSessionMachines($patient_id, $episode_id);
 $latestSessionData = $treatmentController->getLatestSessionWithDetails($patient_id, $episode_id);
 $previousSessionsWithDetails = $treatmentController->getSessionsWithDetails($patient_id, $episode_id);
+$sessionFilesById = [];
+foreach ($previousSessionsWithDetails as $sessionWithDetails) {
+    $sessionFilesById[(int) $sessionWithDetails['id']] = $sessionWithDetails['files'] ?? [];
+}
 
 $groupedSessions = [];
 foreach ($previousExercises as $ex) {
@@ -63,6 +72,7 @@ foreach ($previousExercises as $ex) {
             'secondary_therapist_name' => $ex['secondary_therapist_name'] ?? null,
             'exercises' => [],
             'machines' => [],
+            'files' => $sessionFilesById[(int) $sid] ?? [],
         ];
     }
 
@@ -85,6 +95,7 @@ foreach ($previousMachines as $machine) {
             'secondary_therapist_name' => $machine['secondary_therapist_name'] ?? null,
             'exercises' => [],
             'machines' => [],
+            'files' => $sessionFilesById[(int) $sid] ?? [],
         ];
     }
 
@@ -203,6 +214,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $secondaryTherapistId = isset($_POST['secondary_therapist_id']) && $_POST['secondary_therapist_id'] !== ''
             ? (int) $_POST['secondary_therapist_id']
             : null;
+        $uploadedSessionFile = $_FILES['session_file'] ?? null;
+        $hasSessionFileUpload = $uploadedSessionFile && ($uploadedSessionFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+        $sessionFileTypeId = isset($_POST['session_file_type_id']) && $_POST['session_file_type_id'] !== ''
+            ? (int) $_POST['session_file_type_id']
+            : null;
 
         if ($primaryTherapistId <= 0 || !isset($therapistMap[$primaryTherapistId])) {
             $msg = 'Please select a valid primary therapist.';
@@ -210,6 +226,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'Please select a valid secondary therapist.';
         } elseif ($secondaryTherapistId !== null && $secondaryTherapistId === $primaryTherapistId) {
             $msg = 'Primary and secondary therapist cannot be the same.';
+        } elseif ($hasSessionFileUpload && ($sessionFileTypeId === null || !isset($patientReportFileTypeMap[$sessionFileTypeId]))) {
+            $msg = 'Please select a valid file type for the uploaded file.';
         } else {
             $additionalNotes = trim($_POST['additional_treatment_notes'] ?? '');
 
@@ -241,7 +259,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'additional_treatment_notes' => $additionalNotes,
                 'exercises' => $exercises_data,
                 'machines' => $machines_data,
-                'file' => $_FILES['session_file'] ?? null,
+                'file' => $uploadedSessionFile,
+                'file_type_id' => $hasSessionFileUpload ? $sessionFileTypeId : null,
             ];
 
             // Doctors cannot alter session amount; force zero for all submissions.
@@ -377,6 +396,7 @@ $adviseValue = $_POST['advise']
     ?? ($isEditingSession ? ($editingSessionData['advise'] ?? '') : '');
 $additionalTreatmentNotesValue = $_POST['additional_treatment_notes']
     ?? ($isEditingSession ? ($editingSessionData['additional_treatment_notes'] ?? '') : '');
+$selectedFileTypeId = isset($_POST['session_file_type_id']) ? (string) $_POST['session_file_type_id'] : '';
 $selectedCopySessionId = isset($_POST['copy_session_date']) ? (string) $_POST['copy_session_date'] : '';
 
 $availableSessionIds = array_map(static function ($session) {
@@ -568,6 +588,32 @@ include '../../includes/header.php';
                                               </table>
                                             </div>
                                           <?php endif; ?>
+                                          <?php if (!empty($session['files'])): ?>
+                                            <div class="table-responsive mt-3">
+                                              <table class="table table-sm table-hover align-middle mb-0">
+                                                <thead class="table-light">
+                                                  <tr>
+                                                    <th scope="col">File Name</th>
+                                                    <th scope="col">File Type</th>
+                                                    <th scope="col">Uploaded On</th>
+                                                    <th scope="col">Download</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  <?php foreach ($session['files'] as $file): ?>
+                                                    <tr>
+                                                      <td><?= htmlspecialchars($file['file_name']) ?></td>
+                                                      <td><?= htmlspecialchars($file['file_type_name'] ?? '—') ?></td>
+                                                      <td><?= htmlspecialchars(date('d M Y', strtotime($file['upload_date']))) ?></td>
+                                                      <td>
+                                                        <a href="<?= BASE_URL ?>/views/shared/download_file.php?patient_id=<?= (int) $patient_id ?>&file=<?= urlencode($file['file_name']) ?>" class="btn btn-sm btn-outline-primary">Download</a>
+                                                      </td>
+                                                    </tr>
+                                                  <?php endforeach; ?>
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          <?php endif; ?>
                                         </div>
                                       <?php endforeach; ?>
                                     </div>
@@ -639,16 +685,28 @@ include '../../includes/header.php';
         <?php endif; ?>
 
         <div class="row g-3">
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-3">
             <label class="form-label" for="session_date">Session Date</label>
             <input type="date" name="session_date" id="session_date" class="form-control" value="<?= htmlspecialchars($sessionDateValue) ?>" required>
           </div>
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-3">
             <label class="form-label" for="session_amount">Session Amount</label>
             <input type="number" step="0.01" min="0" name="session_amount" id="session_amount" class="form-control" value="<?= htmlspecialchars($sessionAmountValue) ?>" readonly required>
             <div class="form-text">Amount entry is disabled for doctors and will be recorded as 0.</div>
           </div>
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-3">
+            <label class="form-label" for="session_file_type_id">File Type</label>
+            <select name="session_file_type_id" id="session_file_type_id" class="form-select">
+              <option value="">Select file type</option>
+              <?php foreach ($patientReportFileTypes as $fileType): ?>
+                <option value="<?= (int) $fileType['id'] ?>" <?= ((string) $fileType['id'] === $selectedFileTypeId) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($fileType['name']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+            <div class="form-text">Required when uploading a file.</div>
+          </div>
+          <div class="col-12 col-md-3">
             <label class="form-label" for="session_file">Upload File (optional)</label>
             <input type="file" name="session_file" id="session_file" class="form-control">
           </div>
@@ -739,6 +797,8 @@ include '../../includes/header.php';
   const copyLastSessionInputs = document.querySelectorAll('input[name="copy_last_session"]');
   const copySessionSelect = document.getElementById('copy_session_select');
   const copySessionDateWrapper = document.getElementById('copy_session_date_wrapper');
+  const sessionFileInput = document.getElementById('session_file');
+  const sessionFileTypeSelect = document.getElementById('session_file_type_id');
 
   document.addEventListener('DOMContentLoaded', () => {
     lockSessionAmount();
@@ -753,7 +813,21 @@ include '../../includes/header.php';
       setupCopyLastSession();
     }
     setupDeleteSessionForms();
+    setupSessionFileTypeRequirement();
   });
+
+  function setupSessionFileTypeRequirement() {
+    if (!sessionFileInput || !sessionFileTypeSelect) {
+      return;
+    }
+
+    const syncFileTypeRequired = () => {
+      sessionFileTypeSelect.required = sessionFileInput.files.length > 0;
+    };
+
+    sessionFileInput.addEventListener('change', syncFileTypeRequired);
+    syncFileTypeRequired();
+  }
 
   if (primaryTherapistSelect && secondaryTherapistSelect) {
     primaryTherapistSelect.addEventListener('change', syncTherapistSelections);
