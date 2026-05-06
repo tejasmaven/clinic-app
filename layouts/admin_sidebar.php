@@ -32,6 +32,11 @@ $adminNavItems = [
         'matches' => ['manage_machines.php'],
     ],
     [
+        'label' => 'Patient Report File Types',
+        'href' => BASE_URL . '/views/admin/manage_patient_report_file_types.php',
+        'matches' => ['manage_patient_report_file_types.php'],
+    ],
+    [
         'label' => 'Referral Sources',
         'href' => BASE_URL . '/views/admin/manage_referrals.php',
         'matches' => ['manage_referrals.php'],

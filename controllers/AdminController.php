@@ -209,6 +209,73 @@ class AdminController {
         return $stmt->fetchColumn();
     }
 
+    // -------------------- Patient Report File Types ------------------------
+
+    public function handlePatientReportFileTypeActions() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') return '';
+
+        $action = $_POST['action'] ?? '';
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : null;
+
+        if ($action === 'add_patient_report_file_type') {
+            $name = trim($_POST['name'] ?? '');
+
+            if ($name === '') {
+                return "File type is required.";
+            }
+
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM patient_report_file_types WHERE name = ?");
+            $stmt->execute([$name]);
+            if ($stmt->fetchColumn() > 0) {
+                return "File type already exists.";
+            }
+
+            $stmt = $this->pdo->prepare("INSERT INTO patient_report_file_types (name) VALUES (?)");
+            $stmt->execute([$name]);
+            return "File type added successfully.";
+        }
+
+        if ($action === 'edit_patient_report_file_type' && $id) {
+            $name = trim($_POST['name'] ?? '');
+
+            if ($name === '') {
+                return "File type is required.";
+            }
+
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM patient_report_file_types WHERE name = ? AND id != ?");
+            $stmt->execute([$name, $id]);
+            if ($stmt->fetchColumn() > 0) {
+                return "Another file type with this name already exists.";
+            }
+
+            $stmt = $this->pdo->prepare("UPDATE patient_report_file_types SET name = ? WHERE id = ?");
+            $stmt->execute([$name, $id]);
+            return "File type updated successfully.";
+        }
+
+        if ($action === 'delete_patient_report_file_type' && $id) {
+            $stmt = $this->pdo->prepare("DELETE FROM patient_report_file_types WHERE id = ?");
+            $stmt->execute([$id]);
+            return "File type deleted.";
+        }
+
+        return '';
+    }
+
+    public function getPatientReportFileTypes($search = '', $page = 1, $limit = 10) {
+        $offset = ($page - 1) * $limit;
+        $sql = "SELECT * FROM patient_report_file_types WHERE name LIKE ? ORDER BY name ASC LIMIT $limit OFFSET $offset";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(["%$search%"]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function countPatientReportFileTypes($search = '') {
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM patient_report_file_types WHERE name LIKE ?");
+        $stmt->execute(["%$search%"]);
+        return $stmt->fetchColumn();
+    }
+
     // -------------------- Machines ------------------------
 
     public function handleMachinesActions() {
