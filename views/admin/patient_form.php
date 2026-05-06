@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $referrals = $controller->getReferralSources();
+$fileTypes = $controller->getPatientReportFileTypes();
 include '../../includes/header.php';
 ?>
 

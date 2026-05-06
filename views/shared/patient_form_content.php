@@ -125,6 +125,18 @@
     <div class="row g-3">
       <div class="col-md-12"><label>Reports Upload (max 5 files)</label>
         <input type="file" id="reports" name="reports[]" class="form-control" multiple>
+        <div class="form-text">After choosing files, select the file type for each file in the table below.</div>
+      </div>
+      <div class="col-md-12 d-none" id="selectedReportsContainer">
+        <table class="table table-bordered mt-3 mb-0">
+          <thead>
+            <tr>
+              <th>Selected File</th>
+              <th>File Type *</th>
+            </tr>
+          </thead>
+          <tbody id="selectedReportsBody"></tbody>
+        </table>
       </div>
       <?php if (!empty($files)): ?>
       <div class="col-md-12">
@@ -132,6 +144,7 @@
           <thead>
             <tr>
               <th>File Name</th>
+              <th>File Type</th>
               <th>Uploaded On</th>
               <th>Download</th>
             </tr>
@@ -140,6 +153,7 @@
             <?php foreach ($files as $file): ?>
             <tr>
               <td><?= htmlspecialchars($file['file_name']) ?></td>
+              <td><?= htmlspecialchars($file['file_type_name'] ?? '—') ?></td>
               <td><?= date('d M Y', strtotime($file['upload_date'])) ?></td>
               <td>
                 <a href="<?= BASE_URL ?>/views/shared/download_file.php?patient_id=<?= urlencode($patient['id']) ?>&file=<?= urlencode($file['file_name']) ?>" class="btn btn-sm btn-primary">Download</a>
@@ -169,6 +183,9 @@ const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
 const reportsInput = document.getElementById('reports');
+const selectedReportsContainer = document.getElementById('selectedReportsContainer');
+const selectedReportsBody = document.getElementById('selectedReportsBody');
+const reportFileTypes = <?= json_encode($fileTypes ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 const referralSelect = document.querySelector('select[name="referral_source"]');
 const referralOtherFields = document.getElementById('referralOtherFields');
 const referralOtherTypeField = document.getElementById('referralOtherTypeField');
@@ -205,12 +222,57 @@ prevBtn.addEventListener('click', () => {
 
 showTab(currentTab);
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function renderSelectedReportRows() {
+  if (!reportsInput || !selectedReportsContainer || !selectedReportsBody) return;
+
+  selectedReportsBody.innerHTML = '';
+  if (!reportsInput.files.length) {
+    selectedReportsContainer.classList.add('d-none');
+    return;
+  }
+
+  selectedReportsContainer.classList.remove('d-none');
+  [...reportsInput.files].forEach((file) => {
+    const options = reportFileTypes.map((fileType) => {
+      return `<option value="${escapeHtml(fileType.id)}">${escapeHtml(fileType.name)}</option>`;
+    }).join('');
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${escapeHtml(file.name)}</td>
+      <td>
+        <select name="report_file_type_ids[]" class="form-select" required>
+          <option value="">Select file type</option>
+          ${options}
+        </select>
+      </td>
+    `;
+    selectedReportsBody.appendChild(row);
+  });
+}
+
 if (reportsInput) {
   reportsInput.addEventListener('change', function() {
     if (this.files.length > 5) {
       alert('Maximum 5 files allowed.');
       this.value = '';
     }
+
+    if (this.files.length && !reportFileTypes.length) {
+      alert('Please add patient report file types before uploading reports.');
+      this.value = '';
+    }
+
+    renderSelectedReportRows();
   });
 }
 

@@ -26,8 +26,40 @@ class PatientController {
         $errors[] = "Valid Emergency Contact Number is required (10 digits).";
     }
 
-    if (!empty($_FILES['reports']['name'][0]) && count($_FILES['reports']['name']) > 5) {
+    $uploadedReportCount = !empty($_FILES['reports']['name'][0]) ? count($_FILES['reports']['name']) : 0;
+    if ($uploadedReportCount > 5) {
         $errors[] = "You can upload a maximum of 5 files.";
+    }
+
+    $reportFileTypeIds = $data['report_file_type_ids'] ?? [];
+    if ($uploadedReportCount > 0) {
+        if (!is_array($reportFileTypeIds) || count($reportFileTypeIds) < $uploadedReportCount) {
+            $errors[] = "Please select a file type for each uploaded report.";
+        } else {
+            for ($i = 0; $i < $uploadedReportCount; $i++) {
+                if (($_FILES['reports']['error'][$i] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && (empty($reportFileTypeIds[$i]) || (int) $reportFileTypeIds[$i] <= 0)) {
+                    $errors[] = "Please select a file type for each uploaded report.";
+                    break;
+                }
+            }
+
+            if (empty($errors)) {
+                $selectedTypeIds = array_values(array_unique(array_filter(array_map('intval', array_slice($reportFileTypeIds, 0, $uploadedReportCount)))));
+                if (!empty($selectedTypeIds)) {
+                    $placeholders = implode(', ', array_fill(0, count($selectedTypeIds), '?'));
+                    $stmtTypes = $this->pdo->prepare("SELECT id FROM patient_report_file_types WHERE id IN ($placeholders)");
+                    $stmtTypes->execute($selectedTypeIds);
+                    $validTypeIds = array_map('intval', $stmtTypes->fetchAll(PDO::FETCH_COLUMN));
+
+                    foreach ($selectedTypeIds as $typeId) {
+                        if (!in_array($typeId, $validTypeIds, true)) {
+                            $errors[] = "Please select a valid file type for each uploaded report.";
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     $referralSource = $data['referral_source'] ?? '';
@@ -107,8 +139,13 @@ class PatientController {
                     $original = $_FILES['reports']['name'][$i];
                     $safeName = time() . '_' . preg_replace('/[^A-Za-z0-9.\-_]/', '_', $original);
                     move_uploaded_file($_FILES['reports']['tmp_name'][$i], $uploadDir . $safeName);
-                    $stmtFile = $this->pdo->prepare("INSERT INTO file_master (patient_id, file_name, upload_date) VALUES (:pid, :fname, NOW())");
-                    $stmtFile->execute([':pid' => $patientId, ':fname' => $safeName]);
+                    $fileTypeId = !empty($data['report_file_type_ids'][$i]) ? (int) $data['report_file_type_ids'][$i] : null;
+                    $stmtFile = $this->pdo->prepare("INSERT INTO file_master (patient_id, file_name, file_type_id, upload_date) VALUES (:pid, :fname, :file_type_id, NOW())");
+                    $stmtFile->execute([
+                        ':pid' => $patientId,
+                        ':fname' => $safeName,
+                        ':file_type_id' => $fileTypeId,
+                    ]);
                 }
             }
         }
@@ -131,8 +168,19 @@ class PatientController {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getPatientReportFileTypes() {
+        $stmt = $this->pdo->query("SELECT id, name FROM patient_report_file_types ORDER BY name ASC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function getPatientFiles($patientId) {
-        $stmt = $this->pdo->prepare("SELECT file_id, file_name, upload_date FROM file_master WHERE patient_id = ? ORDER BY upload_date DESC");
+        $stmt = $this->pdo->prepare(
+            "SELECT fm.file_id, fm.file_name, fm.file_type_id, prft.name AS file_type_name, fm.upload_date
+             FROM file_master fm
+             LEFT JOIN patient_report_file_types prft ON prft.id = fm.file_type_id
+             WHERE fm.patient_id = ?
+             ORDER BY fm.upload_date DESC"
+        );
         $stmt->execute([$patientId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
