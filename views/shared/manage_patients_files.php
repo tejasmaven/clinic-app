@@ -67,6 +67,7 @@ include '../../includes/header.php';
           <thead class="table-light">
             <tr>
               <th scope="col">File Name</th>
+              <th scope="col">File Type</th>
               <th scope="col">Uploaded On</th>
               <th scope="col">Download</th>
             </tr>
@@ -76,6 +77,7 @@ include '../../includes/header.php';
               <?php foreach ($files as $file): ?>
                 <tr>
                   <td><?= htmlspecialchars($file['file_name']) ?></td>
+                  <td><?= htmlspecialchars($file['file_type_name'] ?? '—') ?></td>
                   <td><?= date('d M Y', strtotime($file['upload_date'])) ?></td>
                   <td>
                     <a href="<?= BASE_URL ?>/views/shared/download_file.php?patient_id=<?= $patientId ?>&file=<?= urlencode($file['file_name']) ?>" class="btn btn-sm btn-outline-primary">Download</a>
@@ -84,7 +86,7 @@ include '../../includes/header.php';
               <?php endforeach; ?>
             <?php else: ?>
               <tr>
-                <td colspan="3" class="text-center text-muted py-4">No files uploaded for this patient.</td>
+                <td colspan="4" class="text-center text-muted py-4">No files uploaded for this patient.</td>
               </tr>
             <?php endif; ?>
           </tbody>
