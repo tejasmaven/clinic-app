@@ -47,6 +47,11 @@ $adminNavItems = [
         'matches' => ['financial_reports.php'],
     ],
     [
+        'label' => 'Medical Report',
+        'href' => BASE_URL . '/views/admin/medical_report.php',
+        'matches' => ['medical_report.php'],
+    ],
+    [
         'label' => 'Logout',
         'href' => BASE_URL . '/views/shared/logout.php',
         'matches' => [],
