@@ -105,10 +105,6 @@ include '../../includes/header.php';
                 <div class="col-12 col-lg-2">
                     <button class="btn btn-primary w-100">Generate</button>
                 </div>
-                <div class="col-12">
-                    <label for="notes" class="form-label">Notes</label>
-                    <textarea class="form-control" id="notes" name="notes" rows="4" placeholder="Enter additional notes to show on the printed report."><?= htmlspecialchars($notes) ?></textarea>
-                </div>
             </form>
         </div>
 
@@ -123,6 +119,12 @@ include '../../includes/header.php';
                         </p>
                     </div>
                     <button type="button" class="btn btn-outline-primary align-self-md-start" onclick="window.print()" <?= empty($reportRows) ? 'disabled' : '' ?>>Print</button>
+                </div>
+
+                <div class="mb-3">
+                    <label for="notes" class="form-label">Notes</label>
+                    <textarea class="form-control" id="notes" name="notes" rows="4" placeholder="Enter additional notes to show on the printed report."><?= htmlspecialchars($notes) ?></textarea>
+                    <div class="form-text">Notes are only shown after generating the report and are included on the printed report.</div>
                 </div>
 
                 <div class="table-responsive">
@@ -194,7 +196,7 @@ include '../../includes/header.php';
 
         <div class="mt-4">
             <strong>Additional Notes</strong>
-            <p id="printNotes" class="medical-report-notes"><?= nl2br(htmlspecialchars($notes !== '' ? $notes : 'None')) ?></p>
+            <p id="printNotes" class="medical-report-notes"><?= nl2br(htmlspecialchars($notes)) ?></p>
         </div>
     </section>
 <?php endif; ?>
@@ -210,11 +212,16 @@ include '../../includes/header.php';
 }
 
 @media print {
+    @page {
+        margin: 0.5in;
+    }
+
     body {
         background: #fff !important;
     }
 
     body > nav,
+    .admin-layout,
     .toast-container,
     .no-print {
         display: none !important;
@@ -223,6 +230,8 @@ include '../../includes/header.php';
     .app-main {
         max-width: none !important;
         padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
     }
 
     .medical-report-print {
@@ -258,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (notes && printNotes) {
         notes.addEventListener('input', function () {
-            printNotes.textContent = notes.value.trim() || 'None';
+            printNotes.textContent = notes.value.trim();
         });
     }
 });
