@@ -32,6 +32,11 @@ $adminNavItems = [
         'matches' => ['manage_machines.php'],
     ],
     [
+        'label' => 'Exercise Groups',
+        'href' => BASE_URL . '/views/admin/manage_exercise_groups.php',
+        'matches' => ['manage_exercise_groups.php'],
+    ],
+    [
         'label' => 'Patient Report File Types',
         'href' => BASE_URL . '/views/admin/manage_patient_report_file_types.php',
         'matches' => ['manage_patient_report_file_types.php'],

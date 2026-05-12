@@ -37,6 +37,11 @@ $doctorNavItems = [
         'matches' => ['machines_list.php'],
     ],
     [
+        'label' => 'Exercise Groups',
+        'href' => BASE_URL . '/views/doctor/manage_exercise_groups.php',
+        'matches' => ['manage_exercise_groups.php'],
+    ],
+    [
         'label' => 'Logout',
         'href' => BASE_URL . '/views/shared/logout.php',
         'matches' => [],
