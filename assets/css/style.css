@@ -222,3 +222,112 @@ body {
 .toast-container {
   z-index: 1090;
 }
+
+.patient-calendar-card {
+  overflow: hidden;
+}
+
+.patient-calendar-legend {
+  align-items: center;
+  color: #4b5563;
+  display: flex;
+  font-size: 0.9rem;
+  gap: 0.5rem;
+}
+
+.patient-calendar-legend-dot {
+  background-color: #198754;
+  border-radius: 999px;
+  box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.12);
+  flex: 0 0 0.75rem;
+  height: 0.75rem;
+  width: 0.75rem;
+}
+
+.patient-calendar {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.patient-calendar-weekday {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.patient-calendar-day {
+  align-items: flex-start;
+  aspect-ratio: 1 / 1;
+  background-color: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.8rem;
+  color: #1f2937;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 4.75rem;
+  padding: 0.6rem;
+}
+
+.patient-calendar-day.is-muted {
+  color: #94a3b8;
+  opacity: 0.65;
+}
+
+.patient-calendar-day.is-present {
+  background: linear-gradient(135deg, #198754, #22c55e);
+  border-color: rgba(25, 135, 84, 0.45);
+  box-shadow: 0 0.75rem 1.5rem rgba(25, 135, 84, 0.16);
+  color: #ffffff;
+  opacity: 1;
+}
+
+.patient-calendar-date {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.patient-calendar-status {
+  align-self: stretch;
+  background-color: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.28rem 0.35rem;
+  text-align: center;
+}
+
+@media (max-width: 575.98px) {
+  .patient-calendar-card {
+    padding: 1rem;
+  }
+
+  .patient-calendar {
+    gap: 0.28rem;
+  }
+
+  .patient-calendar-weekday {
+    font-size: 0.62rem;
+  }
+
+  .patient-calendar-day {
+    border-radius: 0.55rem;
+    min-height: 3.45rem;
+    padding: 0.4rem 0.32rem;
+  }
+
+  .patient-calendar-date {
+    font-size: 0.88rem;
+  }
+
+  .patient-calendar-status {
+    font-size: 0.58rem;
+    padding: 0.22rem 0.16rem;
+  }
+}
