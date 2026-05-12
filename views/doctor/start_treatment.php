@@ -413,7 +413,7 @@ if ($isEditingSession) {
     $copyLastSessionValue = 'no';
 } else {
     $copyOption = $_POST['copy_last_session'] ?? 'no';
-    $validCopyOptions = ['yes', 'no', 'select'];
+    $validCopyOptions = ['yes', 'no', 'select', 'group'];
     if (!in_array($copyOption, $validCopyOptions, true)) {
         $copyOption = 'no';
     }
@@ -448,6 +448,60 @@ include '../../includes/header.php';
 
   .session-detail-card {
     background-color: #f9fbfd;
+  }
+
+  .session-start-helper {
+    background: #f8fafc;
+    border: 1px solid #dbeafe;
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+
+  .session-source-card {
+    border: 2px solid transparent;
+    border-radius: 0.85rem;
+    cursor: pointer;
+    height: 100%;
+    padding: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .session-source-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .session-source-card.is-active {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.14);
+  }
+
+  .session-source-card.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .session-source-blank {
+    background-color: #f8f9fa;
+  }
+
+  .session-source-latest {
+    background-color: #e7f1ff;
+  }
+
+  .session-source-date {
+    background-color: #fff3cd;
+  }
+
+  .session-source-group {
+    background-color: #e8f5e9;
+  }
+
+  .session-source-help-panel {
+    background-color: #ffffff;
+    border: 1px dashed #93c5fd;
+    border-radius: 0.75rem;
+    padding: 0.85rem;
   }
 </style>
 <div class="workspace-layout">
@@ -652,57 +706,86 @@ include '../../includes/header.php';
         <input type="hidden" name="episode_id" value="<?= $episode_id ?>">
 
         <?php if (!$isEditingSession): ?>
-          <div class="row g-3">
-            <div class="col-12">
-              <div class="fw-bold mb-2">Copy last session data of this patient?</div>
-              <div class="d-flex align-items-center gap-3 flex-wrap">
-                <div class="form-check form-check-inline">
-                  <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_yes" value="yes" <?= $copyLastSessionValue === 'yes' ? 'checked' : '' ?> <?= $latestSessionData ? '' : 'disabled' ?>>
-                  <label class="form-check-label" for="copy_last_session_yes">Yes</label>
-                </div>
-                <div class="form-check form-check-inline">
-                  <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_no" value="no" <?= $copyLastSessionValue === 'no' ? 'checked' : '' ?>>
-                  <label class="form-check-label" for="copy_last_session_no">No</label>
-                </div>
-                <div class="form-check form-check-inline">
-                  <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_select" value="select" <?= $copyLastSessionValue === 'select' ? 'checked' : '' ?> <?= $previousSessionsWithDetails ? '' : 'disabled' ?>>
-                  <label class="form-check-label" for="copy_last_session_select">Copy from previous date</label>
-                </div>
+          <div class="session-start-helper">
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+              <div>
+                <div class="fw-bold">Choose one way to start this session</div>
+                <div class="text-muted small">Only one option can be selected. Choosing another option replaces the exercises and machines shown below.</div>
               </div>
-              <div id="copy_session_date_wrapper" class="mt-2 <?= $copyLastSessionValue === 'select' ? '' : 'd-none' ?>">
-                <label class="form-label" for="copy_session_select">Select previous session date</label>
-                <select name="copy_session_date" id="copy_session_select" class="form-select" <?= $copyLastSessionValue === 'select' ? '' : 'disabled' ?> <?= $previousSessionsWithDetails ? '' : 'disabled' ?>>
-                  <option value="">Choose date</option>
-                  <?php foreach ($previousSessionsWithDetails as $sessionOption): ?>
-                    <option value="<?= (int) $sessionOption['id'] ?>" <?= ((string) $sessionOption['id'] === $selectedCopySessionId) ? 'selected' : '' ?>>
-                      <?= htmlspecialchars(format_display_date($sessionOption['session_date'])) ?>
-                    </option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <?php if (!$latestSessionData && empty($previousSessionsWithDetails)): ?>
-                <small class="text-muted">No previous session data available to copy.</small>
-              <?php endif; ?>
+              <span class="badge text-bg-primary">Select 1 only</span>
             </div>
-          </div>
-        <?php endif; ?>
 
+            <div class="row g-3">
+              <div class="col-12 col-md-6 col-xl-3">
+                <label class="session-source-card session-source-blank <?= $copyLastSessionValue === 'no' ? 'is-active' : '' ?>" for="copy_last_session_no" data-copy-source-card>
+                  <span class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_no" value="no" <?= $copyLastSessionValue === 'no' ? 'checked' : '' ?>>
+                    <span class="form-check-label fw-semibold">Start blank</span>
+                  </span>
+                  <span class="d-block small text-muted mt-2">Enter fresh session details manually.</span>
+                </label>
+              </div>
 
-        <?php if (!$isEditingSession): ?>
-          <div class="row g-3">
-            <div class="col-12 col-md-8 col-lg-6">
-              <label class="form-label" for="exercise_group_select">Apply Exercise Group</label>
+              <div class="col-12 col-md-6 col-xl-3">
+                <label class="session-source-card session-source-latest <?= $copyLastSessionValue === 'yes' ? 'is-active' : '' ?> <?= $latestSessionData ? '' : 'is-disabled' ?>" for="copy_last_session_yes" data-copy-source-card>
+                  <span class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_yes" value="yes" <?= $copyLastSessionValue === 'yes' ? 'checked' : '' ?> <?= $latestSessionData ? '' : 'disabled' ?>>
+                    <span class="form-check-label fw-semibold">Copy latest session</span>
+                  </span>
+                  <span class="d-block small text-muted mt-2">Use the most recent saved treatment as the starting point.</span>
+                </label>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-3">
+                <label class="session-source-card session-source-date <?= $copyLastSessionValue === 'select' ? 'is-active' : '' ?> <?= $previousSessionsWithDetails ? '' : 'is-disabled' ?>" for="copy_last_session_select" data-copy-source-card>
+                  <span class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_select" value="select" <?= $copyLastSessionValue === 'select' ? 'checked' : '' ?> <?= $previousSessionsWithDetails ? '' : 'disabled' ?>>
+                    <span class="form-check-label fw-semibold">Copy by date</span>
+                  </span>
+                  <span class="d-block small text-muted mt-2">Pick any previous session date to copy.</span>
+                </label>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-3">
+                <label class="session-source-card session-source-group <?= $copyLastSessionValue === 'group' ? 'is-active' : '' ?> <?= $exerciseGroups ? '' : 'is-disabled' ?>" for="copy_last_session_group" data-copy-source-card>
+                  <span class="form-check m-0">
+                    <input class="form-check-input" type="radio" name="copy_last_session" id="copy_last_session_group" value="group" <?= $copyLastSessionValue === 'group' ? 'checked' : '' ?> <?= $exerciseGroups ? '' : 'disabled' ?>>
+                    <span class="form-check-label fw-semibold">Use exercise group</span>
+                  </span>
+                  <span class="d-block small text-muted mt-2">Fill exercises and machines from a saved group.</span>
+                </label>
+              </div>
+            </div>
+
+            <div id="copy_session_date_wrapper" class="session-source-help-panel mt-3 <?= $copyLastSessionValue === 'select' ? '' : 'd-none' ?>">
+              <label class="form-label" for="copy_session_select">Select previous session date to copy</label>
+              <select name="copy_session_date" id="copy_session_select" class="form-select" <?= $copyLastSessionValue === 'select' ? '' : 'disabled' ?> <?= $previousSessionsWithDetails ? '' : 'disabled' ?>>
+                <option value="">Choose date</option>
+                <?php foreach ($previousSessionsWithDetails as $sessionOption): ?>
+                  <option value="<?= (int) $sessionOption['id'] ?>" <?= ((string) $sessionOption['id'] === $selectedCopySessionId) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars(format_display_date($sessionOption['session_date'])) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+
+            <div id="exercise_group_wrapper" class="session-source-help-panel mt-3 <?= $copyLastSessionValue === 'group' ? '' : 'd-none' ?>">
+              <label class="form-label" for="exercise_group_select">Select exercise group to apply</label>
               <div class="input-group">
-                <select id="exercise_group_select" class="form-select" <?= $exerciseGroups ? '' : 'disabled' ?>>
+                <select id="exercise_group_select" class="form-select" <?= ($copyLastSessionValue === 'group' && $exerciseGroups) ? '' : 'disabled' ?>>
                   <option value="">Select group</option>
                   <?php foreach ($exerciseGroups as $group): ?>
                     <option value="<?= (int) $group['id'] ?>"><?= htmlspecialchars($group['title']) ?></option>
                   <?php endforeach; ?>
                 </select>
-                <button type="button" class="btn btn-outline-primary" onclick="applySelectedExerciseGroup()" <?= $exerciseGroups ? '' : 'disabled' ?>>Apply Group</button>
+                <button type="button" id="apply_exercise_group_btn" class="btn btn-outline-primary" onclick="applySelectedExerciseGroup()" <?= ($copyLastSessionValue === 'group' && $exerciseGroups) ? '' : 'disabled' ?>>Apply Group</button>
               </div>
-              <div class="form-text">Selecting a group fills the exercises and machines below. You can still edit the rows before saving.</div>
+              <div class="form-text">Applying a group fills the exercises and machines below. You can still edit the rows before saving.</div>
             </div>
+
+            <?php if (!$latestSessionData && empty($previousSessionsWithDetails) && empty($exerciseGroups)): ?>
+              <small class="text-muted d-block mt-2">No previous session or exercise group data is available to copy.</small>
+            <?php endif; ?>
           </div>
         <?php endif; ?>
 
@@ -820,6 +903,10 @@ include '../../includes/header.php';
   const copyLastSessionInputs = document.querySelectorAll('input[name="copy_last_session"]');
   const copySessionSelect = document.getElementById('copy_session_select');
   const copySessionDateWrapper = document.getElementById('copy_session_date_wrapper');
+  const exerciseGroupWrapper = document.getElementById('exercise_group_wrapper');
+  const exerciseGroupSelect = document.getElementById('exercise_group_select');
+  const applyExerciseGroupButton = document.getElementById('apply_exercise_group_btn');
+  const copySourceCards = document.querySelectorAll('[data-copy-source-card]');
   const sessionFileInput = document.getElementById('session_file');
   const sessionFileTypeSelect = document.getElementById('session_file_type_id');
 
@@ -941,6 +1028,14 @@ include '../../includes/header.php';
       copySessionSelect.addEventListener('change', populateFromSelectedSession);
     }
 
+    if (exerciseGroupSelect) {
+      exerciseGroupSelect.addEventListener('change', () => {
+        if (exerciseGroupSelect.value) {
+          applySelectedExerciseGroup();
+        }
+      });
+    }
+
     handleCopySelectionChange();
   }
 
@@ -948,13 +1043,21 @@ include '../../includes/header.php';
     const selected = document.querySelector('input[name="copy_last_session"]:checked');
     const selectedValue = selected ? selected.value : 'no';
     const showDropdown = selectedValue === 'select';
+    const showExerciseGroup = selectedValue === 'group';
 
+    updateCopySourceCards(selectedValue);
     toggleCopySessionDropdown(showDropdown);
+    toggleExerciseGroupControls(showExerciseGroup);
 
     if (selectedValue === 'yes') {
       populateFromLastSession();
     } else if (selectedValue === 'select') {
       populateFromSelectedSession();
+    } else if (selectedValue === 'group') {
+      clearCopiedSessionData();
+      if (exerciseGroupSelect && exerciseGroupSelect.value) {
+        applySelectedExerciseGroup();
+      }
     } else {
       clearCopiedSessionData();
     }
@@ -973,6 +1076,34 @@ include '../../includes/header.php';
       copySessionSelect.value = '';
       copySessionSelect.setAttribute('disabled', 'disabled');
     }
+  }
+
+  function toggleExerciseGroupControls(show) {
+    if (!exerciseGroupWrapper || !exerciseGroupSelect) {
+      return;
+    }
+
+    if (show) {
+      exerciseGroupWrapper.classList.remove('d-none');
+      exerciseGroupSelect.removeAttribute('disabled');
+      if (applyExerciseGroupButton) {
+        applyExerciseGroupButton.removeAttribute('disabled');
+      }
+    } else {
+      exerciseGroupWrapper.classList.add('d-none');
+      exerciseGroupSelect.value = '';
+      exerciseGroupSelect.setAttribute('disabled', 'disabled');
+      if (applyExerciseGroupButton) {
+        applyExerciseGroupButton.setAttribute('disabled', 'disabled');
+      }
+    }
+  }
+
+  function updateCopySourceCards(selectedValue) {
+    copySourceCards.forEach(card => {
+      const input = card.querySelector('input[name="copy_last_session"]');
+      card.classList.toggle('is-active', Boolean(input && input.value === selectedValue && input.checked));
+    });
   }
 
   function populateFromSelectedSession() {
@@ -1061,13 +1192,18 @@ include '../../includes/header.php';
 
 
   function applySelectedExerciseGroup() {
-    const groupSelect = document.getElementById('exercise_group_select');
-    if (!groupSelect || !groupSelect.value) {
+    const groupRadio = document.getElementById('copy_last_session_group');
+    if (groupRadio && !groupRadio.checked) {
+      groupRadio.checked = true;
+      handleCopySelectionChange();
+    }
+
+    if (!exerciseGroupSelect || !exerciseGroupSelect.value) {
       showToast('Please select an exercise group first.');
       return;
     }
 
-    const selectedGroup = exerciseGroups.find(group => String(group.id) === String(groupSelect.value));
+    const selectedGroup = exerciseGroups.find(group => String(group.id) === String(exerciseGroupSelect.value));
     if (!selectedGroup) {
       showToast('Selected exercise group could not be found.');
       return;
