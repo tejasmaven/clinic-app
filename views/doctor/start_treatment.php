@@ -7,10 +7,12 @@ requireRole('Doctor');
 require_once '../../controllers/TreatmentController.php';
 require_once '../../controllers/PatientController.php';
 require_once '../../controllers/PaymentController.php';
+require_once '../../controllers/ExerciseGroupController.php';
 
 $treatmentController = new TreatmentController($pdo);
 $patientController = new PatientController($pdo);
 $paymentController = new PaymentController($pdo);
+$exerciseGroupController = new ExerciseGroupController($pdo);
 
 $patient_id = isset($_GET['patient_id']) ? (int) $_GET['patient_id'] : 0;
 $episode_id = isset($_GET['episode_id']) ? (int) $_GET['episode_id'] : 0;
@@ -38,6 +40,7 @@ $therapistStmt = $pdo->prepare("
 ");
 $therapistStmt->execute();
 $therapists = $therapistStmt->fetchAll(PDO::FETCH_ASSOC);
+$exerciseGroups = $exerciseGroupController->getActiveGroupsWithItems();
 $patientReportFileTypes = $patientController->getPatientReportFileTypes();
 $patientReportFileTypeMap = [];
 foreach ($patientReportFileTypes as $fileType) {
@@ -684,6 +687,25 @@ include '../../includes/header.php';
           </div>
         <?php endif; ?>
 
+
+        <?php if (!$isEditingSession): ?>
+          <div class="row g-3">
+            <div class="col-12 col-md-8 col-lg-6">
+              <label class="form-label" for="exercise_group_select">Apply Exercise Group</label>
+              <div class="input-group">
+                <select id="exercise_group_select" class="form-select" <?= $exerciseGroups ? '' : 'disabled' ?>>
+                  <option value="">Select group</option>
+                  <?php foreach ($exerciseGroups as $group): ?>
+                    <option value="<?= (int) $group['id'] ?>"><?= htmlspecialchars($group['title']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+                <button type="button" class="btn btn-outline-primary" onclick="applySelectedExerciseGroup()" <?= $exerciseGroups ? '' : 'disabled' ?>>Apply Group</button>
+              </div>
+              <div class="form-text">Selecting a group fills the exercises and machines below. You can still edit the rows before saving.</div>
+            </div>
+          </div>
+        <?php endif; ?>
+
         <div class="row g-3">
           <div class="col-12 col-md-3">
             <label class="form-label" for="session_date">Session Date</label>
@@ -789,6 +811,7 @@ include '../../includes/header.php';
   const machineMaster = <?= json_encode($machine_master) ?>;
   const latestSessionData = <?= json_encode($latestSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const previousSessions = <?= json_encode($previousSessionsWithDetails, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+  const exerciseGroups = <?= json_encode($exerciseGroups, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const editingSession = <?= json_encode($editingSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const isEditingSession = Boolean(editingSession && editingSession.id);
   const amountInput = document.getElementById('session_amount');
@@ -836,6 +859,15 @@ include '../../includes/header.php';
         secondaryTherapistSelect.value = '';
       }
       syncTherapistSelections();
+    });
+  }
+
+  const treatmentForm = document.querySelector('form[method="POST"]');
+  if (treatmentForm) {
+    treatmentForm.addEventListener('submit', function (event) {
+      if (!validateUniqueTreatmentSelections()) {
+        event.preventDefault();
+      }
     });
   }
 
@@ -1025,6 +1057,84 @@ include '../../includes/header.php';
 
   function populateFromLastSession() {
     populateFromSession(latestSessionData);
+  }
+
+
+  function applySelectedExerciseGroup() {
+    const groupSelect = document.getElementById('exercise_group_select');
+    if (!groupSelect || !groupSelect.value) {
+      showToast('Please select an exercise group first.');
+      return;
+    }
+
+    const selectedGroup = exerciseGroups.find(group => String(group.id) === String(groupSelect.value));
+    if (!selectedGroup) {
+      showToast('Selected exercise group could not be found.');
+      return;
+    }
+
+    const exercises = (selectedGroup.exercises || []).map(exercise => ({
+      exercise_id: exercise.exercise_id,
+      name: exercise.name,
+      reps: exercise.default_reps ?? '',
+      duration_minutes: exercise.default_duration_minutes ?? '',
+      notes: ''
+    }));
+
+    const machines = (selectedGroup.machines || []).map(machine => ({
+      machine_id: machine.machine_id,
+      name: machine.name,
+      duration_minutes: machine.default_duration_minutes ?? '',
+      notes: ''
+    }));
+
+    populateExercises(exercises);
+    populateMachines(machines);
+  }
+
+  function validateUniqueTreatmentSelections() {
+    const duplicateExercise = findDuplicateSelection('.exercise-select', '.other-name', 'exercise', exerciseMaster);
+    if (duplicateExercise) {
+      showToast('Same exercise is not allowed twice in one treatment session.');
+      return false;
+    }
+
+    const duplicateMachine = findDuplicateSelection('.machine-select', '.other-machine-name', 'machine', machineMaster);
+    if (duplicateMachine) {
+      showToast('Same machine is not allowed twice in one treatment session.');
+      return false;
+    }
+
+    return true;
+  }
+
+  function findDuplicateSelection(selectSelector, otherInputSelector, itemType, masterItems) {
+    const seen = new Set();
+    const selects = document.querySelectorAll(selectSelector);
+    for (const select of selects) {
+      let key = '';
+      if (select.value === 'other') {
+        const row = select.closest(itemType === 'exercise' ? '.exercise-row' : '.machine-row');
+        const customInput = row ? row.querySelector(otherInputSelector) : null;
+        const customName = customInput ? customInput.value.trim().replace(/\s+/g, ' ').toLowerCase() : '';
+        if (!customName) {
+          continue;
+        }
+        const existingItem = masterItems.find(item => String(item.name || '').trim().replace(/\s+/g, ' ').toLowerCase() === customName);
+        key = existingItem ? 'id:' + existingItem.id : 'custom:' + customName;
+      } else if (select.value) {
+        key = 'id:' + select.value;
+      }
+
+      if (key && seen.has(key)) {
+        return true;
+      }
+      if (key) {
+        seen.add(key);
+      }
+    }
+
+    return false;
   }
 
   function populateExercises(exercises) {
@@ -1308,16 +1418,35 @@ include '../../includes/header.php';
       if ($(sel).data('select2')) {
         $(sel).select2('destroy');
       }
+      const selectedValues = Array.from(selects)
+        .filter(other => other !== sel)
+        .map(other => other.value)
+        .filter(value => value && value !== 'other');
       sel.innerHTML = '<option value="">-- Select Machine --</option>' +
-        machineMaster.map(machine => `<option value="${machine.id}" data-default-duration="${machine.default_duration_minutes ?? ''}">${machine.name}</option>`).join('') +
+        machineMaster.map(machine => {
+          const disabled = selectedValues.includes(String(machine.id)) && String(machine.id) !== currentValue;
+          return `<option value="${machine.id}" data-default-duration="${machine.default_duration_minutes ?? ''}" ${disabled ? 'disabled' : ''}>${machine.name}</option>`;
+        }).join('') +
         '<option value="other">Others</option>';
       sel.value = currentValue;
       $(sel).select2({width: '100%'});
       $(sel).on('change.machine', function(){
         handleMachineChange(this);
+        updateMachineOptions();
       });
       handleMachineChange(sel);
     });
+  }
+
+  function showToast(message) {
+    const toastElement = document.getElementById('errorToast');
+    const toastMessage = document.getElementById('toastMsg');
+    if (toastElement && toastMessage && window.bootstrap) {
+      toastMessage.textContent = message;
+      bootstrap.Toast.getOrCreateInstance(toastElement).show();
+    } else {
+      alert(message);
+    }
   }
 
   function handleMachineChange(sel) {

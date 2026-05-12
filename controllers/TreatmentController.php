@@ -8,6 +8,7 @@ class TreatmentController {
 
     public function saveSession($data) {
         try {
+            $this->validateNoDuplicateTreatmentItems($data);
             $this->pdo->beginTransaction();
 
             // Insert treatment session
@@ -45,12 +46,13 @@ class TreatmentController {
             for ($i = 0; $i < $exerciseCount; $i++) {
                 $exerciseId = $exerciseIds[$i];
                 if ($exerciseId === 'other') {
-                    $name = $exerciseNames[$i] ?? 'Custom Exercise';
+                    $name = trim($exerciseNames[$i] ?? '');
+                    if ($name === '') {
+                        throw new InvalidArgumentException('Exercise name is required when selecting Other.');
+                    }
                     $reps = $exerciseReps[$i] ?? 0;
                     $dur = $exerciseDurations[$i] ?? 0;
-                    $stmtNew = $this->pdo->prepare("INSERT INTO exercises_master (name, default_reps, default_duration_minutes, is_active) VALUES (?, ?, ?, 1)");
-                    $stmtNew->execute([$name, $reps, $dur]);
-                    $exerciseId = $this->pdo->lastInsertId();
+                    $exerciseId = $this->findOrCreateExercise($name, $reps, $dur);
                 }
 
                 $stmtEx = $this->pdo->prepare("
@@ -341,6 +343,7 @@ class TreatmentController {
         }
 
         try {
+            $this->validateNoDuplicateTreatmentItems($data);
             $this->pdo->beginTransaction();
 
             $updateStmt = $this->pdo->prepare(
@@ -399,15 +402,12 @@ class TreatmentController {
                 }
 
                 if ($exerciseId === 'other') {
-                    $name = $customName !== '' ? $customName : 'Custom Exercise';
+                    if ($customName === '') {
+                        throw new InvalidArgumentException('Exercise name is required when selecting Other.');
+                    }
                     $reps = isset($exerciseReps[$i]) ? (int) $exerciseReps[$i] : 0;
                     $duration = isset($exerciseDurations[$i]) ? (int) $exerciseDurations[$i] : 0;
-                    $stmtNew = $this->pdo->prepare(
-                        "INSERT INTO exercises_master (name, default_reps, default_duration_minutes, is_active)"
-                        . " VALUES (?, ?, ?, 1)"
-                    );
-                    $stmtNew->execute([$name, $reps, $duration]);
-                    $exerciseId = $this->pdo->lastInsertId();
+                    $exerciseId = $this->findOrCreateExercise($customName, $reps, $duration);
                 }
 
                 if ($exerciseId === '') {
@@ -654,6 +654,77 @@ class TreatmentController {
         $session['files'] = $sessionFiles[(int) $session['id']] ?? [];
 
         return $session;
+    }
+
+
+    private function validateNoDuplicateTreatmentItems(array $data) {
+        $exerciseIds = $data['exercises']['exercise_id'] ?? [];
+        $exerciseNames = $data['exercises']['new_name'] ?? [];
+        $this->assertNoDuplicateSelections(
+            is_array($exerciseIds) ? $exerciseIds : [],
+            is_array($exerciseNames) ? $exerciseNames : [],
+            'Exercise',
+            'exercises_master'
+        );
+
+        $machineIds = $data['machines']['machine_id'] ?? [];
+        $machineNames = $data['machines']['new_name'] ?? [];
+        $this->assertNoDuplicateSelections(
+            is_array($machineIds) ? $machineIds : [],
+            is_array($machineNames) ? $machineNames : [],
+            'Machine',
+            'machines'
+        );
+    }
+
+    private function assertNoDuplicateSelections(array $ids, array $customNames, $label, $masterTable) {
+        $seen = [];
+        $findByNameStmt = $this->pdo->prepare("SELECT id FROM $masterTable WHERE name = ? LIMIT 1");
+
+        foreach ($ids as $index => $rawId) {
+            $rawId = trim((string) $rawId);
+            if ($rawId === '') {
+                continue;
+            }
+
+            if ($rawId === 'other') {
+                $customName = $this->normalizeTreatmentItemName($customNames[$index] ?? '');
+                if ($customName === '') {
+                    continue;
+                }
+                $findByNameStmt->execute([trim((string) ($customNames[$index] ?? ''))]);
+                $existingId = $findByNameStmt->fetchColumn();
+                $key = $existingId !== false ? 'id:' . (int) $existingId : 'custom:' . $customName;
+            } else {
+                $key = 'id:' . (int) $rawId;
+            }
+
+            if (isset($seen[$key])) {
+                throw new InvalidArgumentException($label . ' cannot be selected more than once in the same treatment session.');
+            }
+
+            $seen[$key] = true;
+        }
+    }
+
+    private function normalizeTreatmentItemName($name) {
+        return strtolower(trim(preg_replace('/\s+/', ' ', (string) $name)));
+    }
+
+    private function findOrCreateExercise($name, $reps, $duration) {
+        $findStmt = $this->pdo->prepare('SELECT id FROM exercises_master WHERE name = ? LIMIT 1');
+        $findStmt->execute([$name]);
+        $existing = $findStmt->fetch(PDO::FETCH_ASSOC);
+        if ($existing) {
+            return (int) $existing['id'];
+        }
+
+        $stmtNew = $this->pdo->prepare(
+            'INSERT INTO exercises_master (name, default_reps, default_duration_minutes, is_active) VALUES (?, ?, ?, 1)'
+        );
+        $stmtNew->execute([$name, $reps, $duration]);
+
+        return (int) $this->pdo->lastInsertId();
     }
 
     private function getFilesForSessionIds(array $sessionIds) {
