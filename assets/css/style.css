@@ -286,6 +286,25 @@ body {
   opacity: 1;
 }
 
+.patient-calendar-button {
+  border: 1px solid rgba(25, 135, 84, 0.45);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.patient-calendar-button:hover,
+.patient-calendar-button:focus {
+  box-shadow: 0 1rem 1.75rem rgba(25, 135, 84, 0.24);
+  transform: translateY(-1px);
+}
+
+.patient-calendar-button:focus-visible {
+  outline: 0.2rem solid rgba(13, 110, 253, 0.35);
+  outline-offset: 0.15rem;
+}
+
 .patient-calendar-date {
   font-size: 1rem;
   font-weight: 700;
