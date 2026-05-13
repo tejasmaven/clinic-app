@@ -36,17 +36,26 @@ $doctorSessionsStmt = $pdo->prepare(
         ts.id AS session_id,
         ts.patient_id,
         ts.episode_id,
+        ts.session_date,
         DATE(ts.session_date) AS visit_date,
+        ts.remarks,
+        ts.progress_notes,
+        ts.advise,
+        ts.additional_treatment_notes,
+        primary_user.name AS primary_therapist_name,
+        secondary_user.name AS secondary_therapist_name,
         p.first_name,
         p.last_name,
         COUNT(DISTINCT te.id) AS exercise_count,
         COUNT(DISTINCT tm.id) AS machine_count
      FROM treatment_sessions ts
      INNER JOIN patients p ON ts.patient_id = p.id
+     LEFT JOIN users primary_user ON ts.primary_therapist_id = primary_user.id
+     LEFT JOIN users secondary_user ON ts.secondary_therapist_id = secondary_user.id
      LEFT JOIN treatment_exercises te ON ts.id = te.session_id
      LEFT JOIN treatment_machines tm ON ts.id = tm.session_id
      WHERE ts.doctor_id = ? AND ts.session_date >= ? AND ts.session_date < ?
-     GROUP BY ts.id, ts.patient_id, ts.episode_id, DATE(ts.session_date), p.first_name, p.last_name
+     GROUP BY ts.id, ts.patient_id, ts.episode_id, ts.session_date, DATE(ts.session_date), ts.remarks, ts.progress_notes, ts.advise, ts.additional_treatment_notes, primary_user.name, secondary_user.name, p.first_name, p.last_name
      ORDER BY DATE(ts.session_date) ASC, p.first_name ASC, p.last_name ASC, ts.id ASC"
 );
 $doctorSessionsStmt->execute([
@@ -55,8 +64,113 @@ $doctorSessionsStmt->execute([
     $nextMonthStart->format('Y-m-d'),
 ]);
 
+$sessionRows = $doctorSessionsStmt->fetchAll(PDO::FETCH_ASSOC);
+$sessionIds = array_values(array_unique(array_map(static function ($sessionRow) {
+    return (int) $sessionRow['session_id'];
+}, $sessionRows)));
+$sessionDetailsById = [];
+
+foreach ($sessionIds as $sessionId) {
+    $sessionDetailsById[$sessionId] = [
+        'exercises' => [],
+        'machines' => [],
+        'files' => [],
+    ];
+}
+
+if (!empty($sessionIds)) {
+    $placeholders = implode(',', array_fill(0, count($sessionIds), '?'));
+
+    $exerciseDetailsStmt = $pdo->prepare(
+        "SELECT
+            te.session_id,
+            te.exercise_id,
+            te.exercise_name,
+            te.reps,
+            te.duration_minutes,
+            te.notes,
+            em.name AS master_name
+         FROM treatment_exercises te
+         LEFT JOIN exercises_master em ON te.exercise_id = em.id
+         WHERE te.session_id IN ($placeholders)
+         ORDER BY te.session_id ASC, te.id ASC"
+    );
+    $exerciseDetailsStmt->execute($sessionIds);
+
+    foreach ($exerciseDetailsStmt->fetchAll(PDO::FETCH_ASSOC) as $exerciseRow) {
+        $sessionId = (int) $exerciseRow['session_id'];
+        if (!isset($sessionDetailsById[$sessionId])) {
+            continue;
+        }
+
+        $sessionDetailsById[$sessionId]['exercises'][] = [
+            'name' => $exerciseRow['master_name'] ?? $exerciseRow['exercise_name'] ?? 'Exercise',
+            'reps' => $exerciseRow['reps'],
+            'duration_minutes' => $exerciseRow['duration_minutes'],
+            'notes' => $exerciseRow['notes'],
+        ];
+    }
+
+    $machineDetailsStmt = $pdo->prepare(
+        "SELECT
+            tm.session_id,
+            tm.machine_id,
+            tm.machine_name,
+            tm.duration_minutes,
+            tm.notes,
+            m.name AS master_name
+         FROM treatment_machines tm
+         LEFT JOIN machines m ON tm.machine_id = m.id
+         WHERE tm.session_id IN ($placeholders)
+         ORDER BY tm.session_id ASC, tm.id ASC"
+    );
+    $machineDetailsStmt->execute($sessionIds);
+
+    foreach ($machineDetailsStmt->fetchAll(PDO::FETCH_ASSOC) as $machineRow) {
+        $sessionId = (int) $machineRow['session_id'];
+        if (!isset($sessionDetailsById[$sessionId])) {
+            continue;
+        }
+
+        $sessionDetailsById[$sessionId]['machines'][] = [
+            'name' => $machineRow['master_name'] ?? $machineRow['machine_name'] ?? 'Machine',
+            'duration_minutes' => $machineRow['duration_minutes'],
+            'notes' => $machineRow['notes'],
+        ];
+    }
+
+    $fileDetailsStmt = $pdo->prepare(
+        "SELECT
+            fm.file_id,
+            fm.file_name,
+            fm.file_type_id,
+            fm.treatment_session_id,
+            fm.upload_date,
+            prft.name AS file_type_name
+         FROM file_master fm
+         LEFT JOIN patient_report_file_types prft ON prft.id = fm.file_type_id
+         WHERE fm.treatment_session_id IN ($placeholders)
+         ORDER BY fm.treatment_session_id ASC, fm.upload_date DESC, fm.file_id DESC"
+    );
+    $fileDetailsStmt->execute($sessionIds);
+
+    foreach ($fileDetailsStmt->fetchAll(PDO::FETCH_ASSOC) as $fileRow) {
+        $sessionId = (int) $fileRow['treatment_session_id'];
+        if (!isset($sessionDetailsById[$sessionId])) {
+            continue;
+        }
+
+        $sessionDetailsById[$sessionId]['files'][] = [
+            'file_id' => (int) $fileRow['file_id'],
+            'file_name' => $fileRow['file_name'],
+            'file_type_name' => $fileRow['file_type_name'],
+            'upload_date' => $fileRow['upload_date'],
+        ];
+    }
+}
+
 $calendarVisits = [];
-foreach ($doctorSessionsStmt->fetchAll(PDO::FETCH_ASSOC) as $sessionRow) {
+foreach ($sessionRows as $sessionRow) {
     $visitDate = $sessionRow['visit_date'];
     $patientId = (int) $sessionRow['patient_id'];
 
@@ -76,14 +190,29 @@ foreach ($doctorSessionsStmt->fetchAll(PDO::FETCH_ASSOC) as $sessionRow) {
             'exercise_count' => 0,
             'machine_count' => 0,
             'session_count' => 0,
+            'sessions' => [],
         ];
     }
 
+    $sessionId = (int) $sessionRow['session_id'];
     $calendarVisits[$visitDate]['patients'][$patientId]['exercise_count'] += (int) $sessionRow['exercise_count'];
     $calendarVisits[$visitDate]['patients'][$patientId]['machine_count'] += (int) $sessionRow['machine_count'];
     $calendarVisits[$visitDate]['patients'][$patientId]['session_count']++;
+    $calendarVisits[$visitDate]['patients'][$patientId]['sessions'][] = [
+        'session_id' => $sessionId,
+        'session_date' => $sessionRow['session_date'],
+        'remarks' => $sessionRow['remarks'],
+        'progress_notes' => $sessionRow['progress_notes'],
+        'advise' => $sessionRow['advise'],
+        'additional_treatment_notes' => $sessionRow['additional_treatment_notes'],
+        'primary_therapist_name' => $sessionRow['primary_therapist_name'],
+        'secondary_therapist_name' => $sessionRow['secondary_therapist_name'],
+        'exercises' => $sessionDetailsById[$sessionId]['exercises'] ?? [],
+        'machines' => $sessionDetailsById[$sessionId]['machines'] ?? [],
+        'files' => $sessionDetailsById[$sessionId]['files'] ?? [],
+    ];
 
-    if ((int) $sessionRow['session_id'] > $calendarVisits[$visitDate]['patients'][$patientId]['session_id']) {
+    if ($sessionId > $calendarVisits[$visitDate]['patients'][$patientId]['session_id']) {
         $calendarVisits[$visitDate]['patients'][$patientId]['session_id'] = (int) $sessionRow['session_id'];
         $calendarVisits[$visitDate]['patients'][$patientId]['episode_id'] = (int) $sessionRow['episode_id'];
     }
@@ -197,6 +326,10 @@ include '../../includes/header.php';
                   </thead>
                   <tbody>
                     <?php foreach ($visitData['patients'] as $patientVisit): ?>
+                      <?php
+                        $patientDetailsId = $modalId . 'Patient' . (int) $patientVisit['patient_id'];
+                        $patientAccordionId = $patientDetailsId . 'Accordion';
+                      ?>
                       <tr>
                         <td>
                           <div class="fw-semibold"><?= htmlspecialchars($patientVisit['name'] !== '' ? $patientVisit['name'] : 'Unnamed patient') ?></div>
@@ -207,7 +340,130 @@ include '../../includes/header.php';
                         <td class="text-center"><?= number_format((int) $patientVisit['exercise_count']) ?></td>
                         <td class="text-center"><?= number_format((int) $patientVisit['machine_count']) ?></td>
                         <td class="text-end">
-                          <a class="btn btn-sm btn-outline-primary" href="<?= BASE_URL ?>/views/doctor/start_treatment.php?episode_id=<?= (int) $patientVisit['episode_id'] ?>&patient_id=<?= (int) $patientVisit['patient_id'] ?>&edit_session_id=<?= (int) $patientVisit['session_id'] ?>">View</a>
+                          <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#<?= htmlspecialchars($patientDetailsId) ?>" aria-expanded="false" aria-controls="<?= htmlspecialchars($patientDetailsId) ?>">
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colspan="4" class="bg-light p-0">
+                          <div class="collapse p-3" id="<?= htmlspecialchars($patientDetailsId) ?>">
+                            <div class="accordion" id="<?= htmlspecialchars($patientAccordionId) ?>">
+                            <?php foreach ($patientVisit['sessions'] as $sessionIndex => $session): ?>
+                              <?php
+                                $sessionCollapseId = $patientDetailsId . 'Session' . (int) $session['session_id'];
+                                $sessionHeadingId = $sessionCollapseId . 'Heading';
+                                $sessionDate = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', (string) $session['session_date'])
+                                    ?: DateTimeImmutable::createFromFormat('!Y-m-d', (string) $session['session_date']);
+                              ?>
+                              <div class="accordion-item">
+                                <h2 class="accordion-header" id="<?= htmlspecialchars($sessionHeadingId) ?>">
+                                  <button class="accordion-button<?= $sessionIndex === 0 ? '' : ' collapsed' ?>" type="button" data-bs-toggle="collapse" data-bs-target="#<?= htmlspecialchars($sessionCollapseId) ?>" aria-expanded="<?= $sessionIndex === 0 ? 'true' : 'false' ?>" aria-controls="<?= htmlspecialchars($sessionCollapseId) ?>">
+                                    Treatment Session #<?= (int) $session['session_id'] ?><?= $sessionDate ? ' - ' . htmlspecialchars($sessionDate->format('j M Y')) : '' ?>
+                                  </button>
+                                </h2>
+                                <div id="<?= htmlspecialchars($sessionCollapseId) ?>" class="accordion-collapse collapse<?= $sessionIndex === 0 ? ' show' : '' ?>" aria-labelledby="<?= htmlspecialchars($sessionHeadingId) ?>" data-bs-parent="#<?= htmlspecialchars($patientAccordionId) ?>">
+                                  <div class="accordion-body">
+                                    <div class="row g-3 mb-3">
+                                      <?php if (!empty($session['primary_therapist_name'])): ?>
+                                        <div class="col-md-6"><strong>Primary Therapist:</strong> <?= htmlspecialchars($session['primary_therapist_name']) ?></div>
+                                      <?php endif; ?>
+                                      <?php if (!empty($session['secondary_therapist_name'])): ?>
+                                        <div class="col-md-6"><strong>Secondary Therapist:</strong> <?= htmlspecialchars($session['secondary_therapist_name']) ?></div>
+                                      <?php endif; ?>
+                                      <div class="col-12"><strong>Doctor's Remarks:</strong> <?= htmlspecialchars($session['remarks'] ?: 'No remarks recorded.') ?></div>
+                                      <div class="col-12"><strong>Progress Notes:</strong> <?= htmlspecialchars($session['progress_notes'] ?: 'No progress notes recorded.') ?></div>
+                                      <div class="col-12"><strong>Advise:</strong> <?= htmlspecialchars($session['advise'] ?: 'No advise recorded.') ?></div>
+                                      <?php if (!empty($session['additional_treatment_notes'])): ?>
+                                        <div class="col-12"><strong>Additional Treatment Notes:</strong> <?= htmlspecialchars($session['additional_treatment_notes']) ?></div>
+                                      <?php endif; ?>
+                                    </div>
+
+                                    <h6 class="mb-2">Exercises</h6>
+                                    <?php if (!empty($session['exercises'])): ?>
+                                      <div class="table-responsive mb-3">
+                                        <table class="table table-sm table-bordered align-middle mb-0">
+                                          <thead class="table-light">
+                                            <tr>
+                                              <th scope="col">Exercise</th>
+                                              <th scope="col">Reps</th>
+                                              <th scope="col">Duration</th>
+                                              <th scope="col">Notes</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            <?php foreach ($session['exercises'] as $exercise): ?>
+                                              <tr>
+                                                <td><?= htmlspecialchars($exercise['name'] ?: 'Exercise') ?></td>
+                                                <td><?= htmlspecialchars($exercise['reps'] ?: '-') ?></td>
+                                                <td><?= htmlspecialchars($exercise['duration_minutes'] ?: '-') ?></td>
+                                                <td><?= htmlspecialchars($exercise['notes'] ?: '-') ?></td>
+                                              </tr>
+                                            <?php endforeach; ?>
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    <?php else: ?>
+                                      <p class="text-muted mb-3">No exercises recorded.</p>
+                                    <?php endif; ?>
+
+                                    <h6 class="mb-2">Machines</h6>
+                                    <?php if (!empty($session['machines'])): ?>
+                                      <div class="table-responsive mb-3">
+                                        <table class="table table-sm table-bordered align-middle mb-0">
+                                          <thead class="table-light">
+                                            <tr>
+                                              <th scope="col">Machine</th>
+                                              <th scope="col">Duration</th>
+                                              <th scope="col">Notes</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            <?php foreach ($session['machines'] as $machine): ?>
+                                              <tr>
+                                                <td><?= htmlspecialchars($machine['name'] ?: 'Machine') ?></td>
+                                                <td><?= htmlspecialchars($machine['duration_minutes'] ?: '-') ?></td>
+                                                <td><?= htmlspecialchars($machine['notes'] ?: '-') ?></td>
+                                              </tr>
+                                            <?php endforeach; ?>
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    <?php else: ?>
+                                      <p class="text-muted mb-3">No machines recorded.</p>
+                                    <?php endif; ?>
+
+                                    <?php if (!empty($session['files'])): ?>
+                                      <h6 class="mb-2">Files</h6>
+                                      <div class="table-responsive">
+                                        <table class="table table-sm table-bordered align-middle mb-0">
+                                          <thead class="table-light">
+                                            <tr>
+                                              <th scope="col">File Name</th>
+                                              <th scope="col">File Type</th>
+                                              <th scope="col">Uploaded On</th>
+                                              <th scope="col">Download</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            <?php foreach ($session['files'] as $file): ?>
+                                              <tr>
+                                                <td><?= htmlspecialchars($file['file_name']) ?></td>
+                                                <td><?= htmlspecialchars($file['file_type_name'] ?: 'Uncategorized') ?></td>
+                                                <td><?= htmlspecialchars($file['upload_date']) ?></td>
+                                                <td><a class="btn btn-sm btn-outline-secondary" href="<?= BASE_URL ?>/views/shared/download_file.php?file_id=<?= (int) $file['file_id'] ?>">Download</a></td>
+                                              </tr>
+                                            <?php endforeach; ?>
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    <?php endif; ?>
+                                  </div>
+                                </div>
+                              </div>
+                              <?php endforeach; ?>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     <?php endforeach; ?>
