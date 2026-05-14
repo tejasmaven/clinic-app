@@ -6,12 +6,37 @@ requireLogin();
 requireRole('Doctor');
 
 $doctorId = (int) ($_SESSION['user_id'] ?? 0);
+$doctorName = trim((string) ($_SESSION['name'] ?? ''));
+$doctorDisplayName = $doctorName !== ''
+    ? (preg_match('/^dr\.?\s/i', $doctorName) ? $doctorName : 'Dr. ' . $doctorName)
+    : 'Doctor';
+
+function getTodaysCompletedPatients(PDO $pdo, int $doctorId): array {
+    $todayStart = (new DateTimeImmutable('today'))->format('Y-m-d');
+    $tomorrowStart = (new DateTimeImmutable('tomorrow'))->format('Y-m-d');
+
+    $stmt = $pdo->prepare(
+        "SELECT
+            p.id AS patient_id,
+            TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))) AS patient_name,
+            MAX(ts.session_date) AS latest_session_date
+         FROM treatment_sessions ts
+         INNER JOIN patients p ON ts.patient_id = p.id
+         WHERE ts.doctor_id = ? AND ts.session_date >= ? AND ts.session_date < ?
+         GROUP BY p.id, p.first_name, p.last_name
+         ORDER BY patient_name ASC, p.id ASC"
+    );
+    $stmt->execute([$doctorId, $todayStart, $tomorrowStart]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 // Fetch dashboard stats
 $totalPatients = $pdo->query("SELECT COUNT(*) FROM patients")->fetchColumn();
 $activePatients = $pdo->query("SELECT COUNT(DISTINCT patient_id) FROM treatment_episodes WHERE status = 'Active'")->fetchColumn();
 $totalExercises = $pdo->query("SELECT COUNT(*) FROM exercises_master")->fetchColumn();
 $totalMachines = $pdo->query("SELECT COUNT(*) FROM machines")->fetchColumn();
+$todaysCompletedPatients = getTodaysCompletedPatients($pdo, $doctorId);
 
 $requestedMonth = $_GET['month'] ?? date('Y-m');
 $monthStart = preg_match('/^\d{4}-\d{2}$/', $requestedMonth)
@@ -237,14 +262,54 @@ include '../../includes/header.php';
     <div class="workspace-page-header">
       <div>
         <h1 class="workspace-page-title">Doctor Dashboard</h1>
-        <p class="workspace-page-subtitle">Welcome back, Dr. <?= htmlspecialchars($_SESSION['name']) ?>.</p>
+        <p class="workspace-page-subtitle">Welcome back, <?= htmlspecialchars($doctorDisplayName) ?>.</p>
+      </div>
+    </div>
+
+    <div class="app-card mb-4">
+      <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-start mb-3">
+        <div>
+          <div class="text-uppercase small text-muted fw-semibold">Today's Patient List</div>
+          <h5 class="mb-1">Completed Treatment Today</h5>
+          <p class="text-muted mb-0">Patients with completed treatment sessions recorded today by <?= htmlspecialchars($doctorDisplayName) ?>.</p>
+        </div>
+        <span class="badge bg-success-subtle text-success border border-success-subtle">
+          <?= number_format(count($todaysCompletedPatients)) ?> <?= count($todaysCompletedPatients) === 1 ? 'patient' : 'patients' ?>
+        </span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th scope="col" style="width: 80px;">#</th>
+              <th scope="col">Patient Name</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php if (!empty($todaysCompletedPatients)): ?>
+              <?php foreach ($todaysCompletedPatients as $index => $todaysPatient): ?>
+                <tr>
+                  <td><?= number_format($index + 1) ?></td>
+                  <td class="fw-semibold">
+                    <?= htmlspecialchars($todaysPatient['patient_name'] !== '' ? $todaysPatient['patient_name'] : 'Unnamed patient') ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <tr>
+                <td colspan="2" class="text-center text-muted py-4">No patients have completed treatment today.</td>
+              </tr>
+            <?php endif; ?>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <div class="app-card patient-calendar-card mb-4">
       <div class="d-flex flex-column flex-sm-row gap-3 justify-content-between align-items-sm-center mb-3">
         <div>
-          <div class="text-uppercase small text-muted fw-semibold">Patient Attendance Calendar</div>
+          <div class="text-uppercase small text-muted fw-semibold">Patient Attendance Calendar for <?= htmlspecialchars($doctorDisplayName) ?></div>
           <h5 class="mb-0"><?= htmlspecialchars($monthStart->format('F Y')) ?></h5>
         </div>
         <div class="d-flex flex-wrap gap-2" aria-label="Calendar month navigation">
@@ -261,7 +326,7 @@ include '../../includes/header.php';
         <span>Green dates show days where you attended patients. Select a date to view patient treatment counts.</span>
       </div>
 
-      <div class="patient-calendar" role="grid" aria-label="Patient attendance calendar for <?= htmlspecialchars($monthStart->format('F Y')) ?>">
+      <div class="patient-calendar" role="grid" aria-label="Patient attendance calendar for <?= htmlspecialchars($doctorDisplayName) ?>, <?= htmlspecialchars($monthStart->format('F Y')) ?>">
         <?php foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $weekday): ?>
           <div class="patient-calendar-weekday" role="columnheader"><?= htmlspecialchars($weekday) ?></div>
         <?php endforeach; ?>
