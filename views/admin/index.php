@@ -38,9 +38,22 @@ function parseReportDate(?string $requestedDate, string $fallback): string {
     return $date->format('Y-m-d');
 }
 
-function getTodaysCompletedPatients(PDO $pdo): array {
-    $today = (new DateTimeImmutable('today'))->format('Y-m-d');
-    $tomorrow = (new DateTimeImmutable('tomorrow'))->format('Y-m-d');
+function parseCompletedTreatmentDate(?string $requestedDate): DateTimeImmutable {
+    $date = $requestedDate && preg_match('/^\d{4}-\d{2}-\d{2}$/', $requestedDate)
+        ? DateTimeImmutable::createFromFormat('!Y-m-d', $requestedDate)
+        : false;
+    $dateErrors = DateTimeImmutable::getLastErrors();
+
+    if (!$date || ($dateErrors && ($dateErrors['warning_count'] || $dateErrors['error_count']))) {
+        return new DateTimeImmutable('today');
+    }
+
+    return $date;
+}
+
+function getCompletedPatientsForDate(PDO $pdo, DateTimeImmutable $selectedDate): array {
+    $selectedDateStart = $selectedDate->format('Y-m-d');
+    $nextDateStart = $selectedDate->modify('+1 day')->format('Y-m-d');
 
     $stmt = $pdo->prepare(
         "SELECT
@@ -57,7 +70,7 @@ function getTodaysCompletedPatients(PDO $pdo): array {
          GROUP BY p.id, p.first_name, p.last_name, u.id, u.name
          ORDER BY latest_session_date DESC, patient_name ASC, doctor_name ASC"
     );
-    $stmt->execute([$today, $tomorrow]);
+    $stmt->execute([$selectedDateStart, $nextDateStart]);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -156,7 +169,12 @@ $activePatients = $pdo->query("SELECT COUNT(DISTINCT patient_id) FROM treatment_
 $totalExercises = $pdo->query("SELECT COUNT(*) FROM exercises_master")->fetchColumn();
 $totalReferrals = $pdo->query("SELECT COUNT(*) FROM referral_sources")->fetchColumn();
 
-$todaysCompletedPatients = getTodaysCompletedPatients($pdo);
+$completedTreatmentDate = parseCompletedTreatmentDate($_GET['completed_date'] ?? null);
+$completedTreatmentDateValue = $completedTreatmentDate->format('Y-m-d');
+$previousCompletedTreatmentDate = $completedTreatmentDate->modify('-1 day')->format('Y-m-d');
+$nextCompletedTreatmentDate = $completedTreatmentDate->modify('+1 day')->format('Y-m-d');
+$isCompletedTreatmentToday = $completedTreatmentDateValue === (new DateTimeImmutable('today'))->format('Y-m-d');
+$todaysCompletedPatients = getCompletedPatientsForDate($pdo, $completedTreatmentDate);
 
 $monthStart = parseDashboardMonth($_GET['attendance_month'] ?? null);
 $monthEnd = $monthStart->modify('last day of this month');
@@ -233,15 +251,27 @@ include '../../includes/header.php';
         </div>
 
         <div class="app-card mb-4">
-            <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-start mb-3">
+            <div class="d-flex flex-column flex-lg-row gap-3 justify-content-between align-items-lg-start mb-3">
                 <div>
-                    <div class="text-uppercase small text-muted fw-semibold">Today's Patient List</div>
-                    <h5 class="mb-1">Completed Treatment Today</h5>
-                    <p class="text-muted mb-0">Patients with completed treatment sessions recorded today, grouped by the doctor who attended them.</p>
+                    <div class="text-uppercase small text-muted fw-semibold">Selected Patient List</div>
+                    <h5 class="mb-1">Completed Treatment <?= $isCompletedTreatmentToday ? 'Today' : 'on ' . htmlspecialchars($completedTreatmentDate->format('M j, Y')) ?></h5>
+                    <p class="text-muted mb-0">Patients with completed treatment sessions recorded for <?= htmlspecialchars($completedTreatmentDate->format('F j, Y')) ?>, grouped by the doctor who attended them.</p>
                 </div>
-                <span class="badge bg-success-subtle text-success border border-success-subtle">
-                    <?= number_format(count($todaysCompletedPatients)) ?> <?= count($todaysCompletedPatients) === 1 ? 'record' : 'records' ?>
-                </span>
+                <div class="d-flex flex-column align-items-lg-end gap-2">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle align-self-start align-self-lg-end">
+                        <?= number_format(count($todaysCompletedPatients)) ?> <?= count($todaysCompletedPatients) === 1 ? 'record' : 'records' ?>
+                    </span>
+                    <form class="d-flex flex-wrap gap-2 align-items-center" method="get">
+                        <input type="hidden" name="attendance_month" value="<?= htmlspecialchars($selectedMonth) ?>">
+                        <input type="hidden" name="report_start" value="<?= htmlspecialchars($reportStartDate) ?>">
+                        <input type="hidden" name="report_end" value="<?= htmlspecialchars($reportEndDate) ?>">
+                        <a class="btn btn-outline-primary btn-sm" href="?attendance_month=<?= htmlspecialchars($selectedMonth) ?>&amp;report_start=<?= htmlspecialchars($reportStartDate) ?>&amp;report_end=<?= htmlspecialchars($reportEndDate) ?>&amp;completed_date=<?= htmlspecialchars($previousCompletedTreatmentDate) ?>">&larr; Previous Date</a>
+                        <label class="visually-hidden" for="completed-date-admin">Select completed treatment date</label>
+                        <input class="form-control form-control-sm" style="max-width: 170px;" type="date" id="completed-date-admin" name="completed_date" value="<?= htmlspecialchars($completedTreatmentDateValue) ?>">
+                        <button class="btn btn-primary btn-sm" type="submit">View Date</button>
+                        <a class="btn btn-outline-primary btn-sm" href="?attendance_month=<?= htmlspecialchars($selectedMonth) ?>&amp;report_start=<?= htmlspecialchars($reportStartDate) ?>&amp;report_end=<?= htmlspecialchars($reportEndDate) ?>&amp;completed_date=<?= htmlspecialchars($nextCompletedTreatmentDate) ?>">Next Date &rarr;</a>
+                    </form>
+                </div>
             </div>
 
             <div class="table-responsive">
@@ -266,7 +296,7 @@ include '../../includes/header.php';
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">No patients have completed treatment today.</td>
+                                <td colspan="4" class="text-center text-muted py-4">No patients have completed treatment on this date.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
