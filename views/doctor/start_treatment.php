@@ -2,7 +2,7 @@
 require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
-requireRole('Doctor');
+requireRole(['Doctor', 'Admin']);
 
 require_once '../../controllers/TreatmentController.php';
 require_once '../../controllers/PatientController.php';
@@ -13,6 +13,13 @@ $treatmentController = new TreatmentController($pdo);
 $patientController = new PatientController($pdo);
 $paymentController = new PaymentController($pdo);
 $exerciseGroupController = new ExerciseGroupController($pdo);
+
+$isAdmin = ($_SESSION['role'] ?? '') === 'Admin';
+$layoutClass = $isAdmin ? 'admin-layout' : 'workspace-layout';
+$contentClass = $isAdmin ? 'admin-content' : 'workspace-content';
+$headerClass = $isAdmin ? 'admin-page-header' : 'workspace-page-header';
+$titleClass = $isAdmin ? 'admin-page-title' : 'workspace-page-title';
+$subtitleClass = $isAdmin ? 'admin-page-subtitle' : 'workspace-page-subtitle';
 
 $patient_id = isset($_GET['patient_id']) ? (int) $_GET['patient_id'] : 0;
 $episode_id = isset($_GET['episode_id']) ? (int) $_GET['episode_id'] : 0;
@@ -504,15 +511,15 @@ include '../../includes/header.php';
     padding: 0.85rem;
   }
 </style>
-<div class="workspace-layout">
-  <?php include '../../layouts/doctor_sidebar.php'; ?>
-  <div class="workspace-content">
-    <div class="workspace-page-header">
+<div class="<?= $layoutClass ?>">
+  <?php include $isAdmin ? '../../layouts/admin_sidebar.php' : '../../layouts/doctor_sidebar.php'; ?>
+  <div class="<?= $contentClass ?>">
+    <div class="<?= $headerClass ?>">
       <div>
-        <h1 class="workspace-page-title">
+        <h1 class="<?= $titleClass ?>">
           <?= $isEditingSession ? 'Update Treatment Session' : 'Log Treatment Session' ?>
         </h1>
-        <p class="workspace-page-subtitle">Patient: <?= htmlspecialchars($patient_name) ?></p>
+        <p class="<?= $subtitleClass ?>">Patient: <?= htmlspecialchars($patient_name) ?></p>
       </div>
       <div class="d-flex gap-2">
         <?php if ($isEditingSession): ?>

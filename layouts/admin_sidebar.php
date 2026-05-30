@@ -19,7 +19,12 @@ $adminNavItems = [
     [
         'label' => 'Manage Patients',
         'href' => BASE_URL . '/views/admin/manage_patients.php',
-        'matches' => ['manage_patients.php', 'patient_form.php'],
+        'matches' => [
+            'manage_patients.php',
+            'patient_form.php',
+            'select_or_create_episode.php',
+            'start_treatment.php',
+        ],
     ],
     [
         'label' => 'Exercises',
