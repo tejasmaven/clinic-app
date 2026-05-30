@@ -80,6 +80,7 @@ include '../../includes/header.php';
                         <td class="text-end">
                             <div class="d-flex flex-wrap justify-content-end gap-2">
                                 <a href="patient_form.php?id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-info">Edit</a>
+                                <a href="../doctor/select_or_create_episode.php?patient_id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-success">Start Treatment</a>
                                 <a href="../shared/manage_payments.php?patient_id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-secondary">Payments</a>
                                 <a href="patient_password.php?patient_id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-primary">Password</a>
                                 <a href="../shared/manage_patients_files.php?patient_id=<?= (int) $p['id'] ?>" class="btn btn-sm btn-warning">View Files</a>

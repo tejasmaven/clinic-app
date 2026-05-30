@@ -14,7 +14,9 @@ function requireLogin(?string $redirect = null) {
 function requireRole($role, ?string $redirect = null) {
     $redirectTo = $redirect ?? '../login.php';
     requireLogin($redirectTo);
-    if ($_SESSION['role'] !== $role) {
+
+    $allowedRoles = is_array($role) ? $role : [$role];
+    if (!in_array($_SESSION['role'] ?? '', $allowedRoles, true)) {
         header("Location: $redirectTo");
         exit;
     }

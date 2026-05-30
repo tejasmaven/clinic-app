@@ -2,10 +2,18 @@
 require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
-requireRole('Doctor');
+requireRole(['Doctor', 'Admin']);
 
 require_once '../../controllers/TreatmentController.php';
 $treatmentController = new TreatmentController($pdo);
+
+$isAdmin = ($_SESSION['role'] ?? '') === 'Admin';
+$patientsUrl = $isAdmin ? '../admin/manage_patients.php' : 'manage_patients.php';
+$layoutClass = $isAdmin ? 'admin-layout' : 'workspace-layout';
+$contentClass = $isAdmin ? 'admin-content' : 'workspace-content';
+$headerClass = $isAdmin ? 'admin-page-header' : 'workspace-page-header';
+$titleClass = $isAdmin ? 'admin-page-title' : 'workspace-page-title';
+$subtitleClass = $isAdmin ? 'admin-page-subtitle' : 'workspace-page-subtitle';
 
 // Get patient_id from query string
 $patient_id = isset($_GET['patient_id']) ? (int) $_GET['patient_id'] : 0;
@@ -50,16 +58,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include '../../includes/header.php';
 
 ?>
-<div class="workspace-layout">
-  <?php include '../../layouts/doctor_sidebar.php'; ?>
-  <div class="workspace-content">
-    <div class="workspace-page-header">
+<div class="<?= $layoutClass ?>">
+  <?php include $isAdmin ? '../../layouts/admin_sidebar.php' : '../../layouts/doctor_sidebar.php'; ?>
+  <div class="<?= $contentClass ?>">
+    <div class="<?= $headerClass ?>">
       <div>
-        <h1 class="workspace-page-title">Treatment Episodes</h1>
-        <p class="workspace-page-subtitle">Manage care plans for <?= htmlspecialchars($patient['first_name'] . ' ' . $patient['last_name']) ?>.</p>
+        <h1 class="<?= $titleClass ?>">Treatment Episodes</h1>
+        <p class="<?= $subtitleClass ?>">Manage care plans for <?= htmlspecialchars($patient['first_name'] . ' ' . $patient['last_name']) ?>.</p>
       </div>
       <div class="d-flex gap-2">
-        <a href="manage_patients.php" class="btn btn-outline-secondary">Back to Patients</a>
+        <a href="<?= $patientsUrl ?>" class="btn btn-outline-secondary">Back to Patients</a>
       </div>
     </div>
 
