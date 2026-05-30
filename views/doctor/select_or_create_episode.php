@@ -5,9 +5,7 @@ requireLogin();
 requireRole(['Doctor', 'Admin']);
 
 require_once '../../controllers/TreatmentController.php';
-require_once '../../controllers/PaymentController.php';
 $treatmentController = new TreatmentController($pdo);
-$paymentController = new PaymentController($pdo);
 
 $isAdmin = ($_SESSION['role'] ?? '') === 'Admin';
 $patientsUrl = $isAdmin ? '../admin/manage_patients.php' : 'manage_patients.php';
@@ -58,15 +56,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($msg === null) {
         try {
             $stmt = $pdo->prepare("INSERT INTO treatment_episodes
-                (patient_id, start_date, initial_complaints, created_by, status)
-                VALUES (?, ?, ?, ?, 'Active')");
-            $stmt->execute([$patient_id, $start_date, $initial_complaints, $doctor_id]);
+                (patient_id, start_date, initial_complaints, created_by, status, fee_amount)
+                VALUES (?, ?, ?, ?, 'Active', ?)");
+            $stmt->execute([$patient_id, $start_date, $initial_complaints, $doctor_id, $feeAmount]);
 
             $episode_id = (int) $pdo->lastInsertId();
-
-            if ($isAdmin) {
-                $paymentController->recordEpisodeFee($patient_id, $episode_id, $start_date, $feeAmount);
-            }
 
             // Redirect to treatment screen
             header("Location: start_treatment.php?episode_id=" . $episode_id."&patient_id=".$patient_id);
