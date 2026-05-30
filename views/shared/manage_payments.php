@@ -209,6 +209,23 @@ function resolveSessionsForPayment(array $payment, array $sessionLookupById, arr
     return array_values($matches);
 }
 
+function getLedgerTreatmentDate(array $payment, array $matchingSessions) {
+    if (($payment['transaction_type'] ?? '') === 'charge') {
+        foreach ($matchingSessions as $session) {
+            if (!empty($session['session_date'])) {
+                return $session['session_date'];
+            }
+        }
+
+        $sessionReference = $payment['session_reference'] ?? '';
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $sessionReference)) {
+            return $sessionReference;
+        }
+    }
+
+    return $payment['transaction_date'] ?? null;
+}
+
 include '../../includes/header.php';
 ?>
 <style>
@@ -321,7 +338,7 @@ include '../../includes/header.php';
             <thead class="table-light">
               <tr>
                 <th scope="col">Select</th>
-                <th scope="col">Date</th>
+                <th scope="col">Treatment Date</th>
                 <th scope="col">Type</th>
                 <th scope="col">Amount</th>
                 <th scope="col">Status</th>
@@ -344,6 +361,7 @@ include '../../includes/header.php';
                     $sessionDisplay = $pay['session_reference'] ? $pay['session_reference'] : '-';
                     $noteDisplay = $pay['notes'] ? $pay['notes'] : '-';
                     $matchingSessions = resolveSessionsForPayment($pay, $sessionLookupById, $sessionLookupByDate);
+                    $ledgerTreatmentDate = getLedgerTreatmentDate($pay, $matchingSessions);
                     $detailRowId = 'session-detail-' . $pay['id'];
                     $isCharge = $pay['transaction_type'] === 'charge';
                   ?>
@@ -358,7 +376,7 @@ include '../../includes/header.php';
                         <span class="text-muted">-</span>
                       <?php endif; ?>
                     </td>
-                    <td><?= htmlspecialchars(format_display_date($pay['transaction_date'])) ?></td>
+                    <td><?= htmlspecialchars($ledgerTreatmentDate ? format_display_date($ledgerTreatmentDate) : '-') ?></td>
                     <td><span class="badge <?= $typeClass ?>"><?= htmlspecialchars($type) ?></span></td>
                     <td>
                       <div class="fee-display">R <?= number_format((float) $pay['amount'], 2) ?></div>
