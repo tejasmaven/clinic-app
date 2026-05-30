@@ -21,7 +21,6 @@ $headerClass = $isAdmin ? 'admin-page-header' : 'workspace-page-header';
 $titleClass = $isAdmin ? 'admin-page-title' : 'workspace-page-title';
 $subtitleClass = $isAdmin ? 'admin-page-subtitle' : 'workspace-page-subtitle';
 $canEditFullSession = $isAdmin;
-$canEditSessionAmount = $isAdmin;
 
 $patient_id = isset($_GET['patient_id']) ? (int) $_GET['patient_id'] : 0;
 $episode_id = isset($_GET['episode_id']) ? (int) $_GET['episode_id'] : 0;
@@ -34,6 +33,14 @@ $patientData = $patientController->getPatientById($patient_id);
 if (!$patientData) {
     exit('Patient not found.');
 }
+
+$episodeStmt = $pdo->prepare("SELECT id, fee_amount FROM treatment_episodes WHERE id = ? AND patient_id = ?");
+$episodeStmt->execute([$episode_id, $patient_id]);
+$episodeData = $episodeStmt->fetch(PDO::FETCH_ASSOC);
+if (!$episodeData) {
+    exit('Treatment episode not found.');
+}
+$episodeFeeAmount = isset($episodeData['fee_amount']) ? (float) $episodeData['fee_amount'] : 0.0;
 
 $patient_name = trim($patientData['first_name'] . ' ' . $patientData['last_name']);
 
@@ -278,15 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'file_type_id' => $hasSessionFileUpload ? $sessionFileTypeId : null,
             ];
 
-            $amount = 0.0;
-            if ($isAdmin) {
-                $rawAmount = trim((string) ($_POST['session_amount'] ?? ''));
-                if ($rawAmount === '' || !is_numeric($rawAmount) || (float) $rawAmount < 0) {
-                    $msg = 'Please enter a valid numeric session amount.';
-                } else {
-                    $amount = (float) $rawAmount;
-                }
-            }
+            $amount = $episodeFeeAmount;
 
             if ($msg !== null) {
                 // Validation error already set.
@@ -319,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
                         if (is_array($result) && !empty($result['success'])) {
-                            if ($isAdmin) {
+                            if (!$doctorComplaintOnlyUpdate) {
                                 try {
                                     $paymentController->removeSessionCharges(
                                         $patient_id,
@@ -328,13 +327,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         $previousSessionDate
                                     );
 
-                                    $paymentController->recordSessionPayment(
-                                        $data['patient_id'],
-                                        $data['episode_id'],
-                                        $data['session_date'],
-                                        $amount,
-                                        $sessionId
-                                    );
+                                    if ($amount > 0) {
+                                        $paymentController->recordSessionPayment(
+                                            $data['patient_id'],
+                                            $data['episode_id'],
+                                            $data['session_date'],
+                                            $amount,
+                                            $sessionId
+                                        );
+                                    }
                                 } catch (Exception $e) {
                                     $msg = 'Session updated but payment update failed: ' . $e->getMessage();
                                 }
@@ -357,7 +358,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (is_array($result) && !empty($result['success'])) {
                     $sessionId = isset($result['session_id']) ? (int) $result['session_id'] : null;
-                    if ($isAdmin) {
+                    if ($amount > 0) {
                         try {
                             $paymentController->recordSessionPayment(
                                 $data['patient_id'],
@@ -403,17 +404,15 @@ if ($editSessionId > 0) {
     }
 }
 
-if (!$isAdmin) {
-    if (is_array($latestSessionData)) {
-        $latestSessionData['amount'] = null;
-    }
-    foreach ($previousSessionsWithDetails as &$sessionWithDetails) {
-        $sessionWithDetails['amount'] = null;
-    }
-    unset($sessionWithDetails);
-    if (is_array($editingSessionData)) {
-        $editingSessionData['amount'] = null;
-    }
+if (is_array($latestSessionData)) {
+    $latestSessionData['amount'] = null;
+}
+foreach ($previousSessionsWithDetails as &$sessionWithDetails) {
+    $sessionWithDetails['amount'] = null;
+}
+unset($sessionWithDetails);
+if (is_array($editingSessionData)) {
+    $editingSessionData['amount'] = null;
 }
 
 $isEditingSession = $editingSessionData !== null;
@@ -438,8 +437,6 @@ if (isset($_POST['secondary_therapist_id'])) {
 
 $sessionDateValue = $_POST['session_date']
     ?? ($isEditingSession ? ($editingSessionData['session_date'] ?? date('Y-m-d')) : date('Y-m-d'));
-$sessionAmountValue = $_POST['session_amount']
-    ?? ($isAdmin && $isEditingSession && $editingSessionData['amount'] !== null ? number_format((float) $editingSessionData['amount'], 2, '.', '') : '0');
 $remarksValue = $_POST['remarks']
     ?? ($isEditingSession ? ($editingSessionData['remarks'] ?? '') : '');
 $progressNotesValue = $_POST['progress_notes']
@@ -848,12 +845,6 @@ include '../../includes/header.php';
             <label class="form-label" for="session_date">Session Date</label>
             <input type="date" name="session_date" id="session_date" class="form-control" value="<?= htmlspecialchars($sessionDateValue) ?>" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?> required>
           </div>
-          <?php if ($isAdmin): ?>
-            <div class="col-12 col-md-3">
-              <label class="form-label" for="session_amount">Session Amount</label>
-              <input type="number" step="0.01" min="0" name="session_amount" id="session_amount" class="form-control" value="<?= htmlspecialchars($sessionAmountValue) ?>" required>
-            </div>
-          <?php endif; ?>
           <div class="col-12 col-md-3">
             <label class="form-label" for="session_file_type_id">File Type</label>
             <select name="session_file_type_id" id="session_file_type_id" class="form-select" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
@@ -952,9 +943,7 @@ include '../../includes/header.php';
   const exerciseGroups = <?= json_encode($exerciseGroups, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const editingSession = <?= json_encode($editingSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const isEditingSession = Boolean(editingSession && editingSession.id);
-  const canEditSessionAmount = <?= json_encode($canEditSessionAmount) ?>;
   const doctorComplaintOnlyEdit = <?= json_encode($doctorComplaintOnlyEdit) ?>;
-  const amountInput = document.getElementById('session_amount');
   const primaryTherapistSelect = document.getElementById('primary_therapist_id');
   const secondaryTherapistSelect = document.getElementById('secondary_therapist_id');
   const copyLastSessionInputs = document.querySelectorAll('input[name="copy_last_session"]');
@@ -968,7 +957,6 @@ include '../../includes/header.php';
   const sessionFileTypeSelect = document.getElementById('session_file_type_id');
 
   document.addEventListener('DOMContentLoaded', () => {
-    lockSessionAmount();
     if (isEditingSession) {
       populateSessionForEditing(editingSession);
       if (doctorComplaintOnlyEdit) {
@@ -1031,22 +1019,6 @@ include '../../includes/header.php';
     });
   }
 
-  function lockSessionAmount(previousAmount = null) {
-    if (!amountInput) {
-      return;
-    }
-
-    if (canEditSessionAmount) {
-      if (previousAmount !== null && previousAmount !== undefined && previousAmount !== '') {
-        amountInput.value = Number(previousAmount).toFixed(2);
-      }
-      return;
-    }
-
-    amountInput.readOnly = true;
-    amountInput.value = 0;
-  }
-
   function populateSessionForEditing(session) {
     if (!session) {
       addExercise();
@@ -1058,8 +1030,6 @@ include '../../includes/header.php';
     if (sessionDateInput && session.session_date) {
       sessionDateInput.value = session.session_date;
     }
-
-    lockSessionAmount(session.amount);
 
     if (primaryTherapistSelect) {
       primaryTherapistSelect.value = session.primary_therapist_id
@@ -1229,8 +1199,6 @@ include '../../includes/header.php';
     if (!session) {
       return;
     }
-
-    lockSessionAmount(session.amount);
 
     if (primaryTherapistSelect) {
       primaryTherapistSelect.value = session.primary_therapist_id
@@ -1463,7 +1431,6 @@ include '../../includes/header.php';
   }
 
   function clearCopiedSessionData() {
-    lockSessionAmount();
     if (primaryTherapistSelect) {
       primaryTherapistSelect.value = '';
     }
