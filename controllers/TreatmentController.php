@@ -320,6 +320,26 @@ class TreatmentController {
         return $session;
     }
 
+
+    public function updateSessionComplaintSummary($sessionId, $patientId, $episodeId, $complaintSummary) {
+        $stmt = $this->pdo->prepare(
+            "UPDATE treatment_sessions"
+            . " SET remarks = :remarks"
+            . " WHERE id = :session_id AND patient_id = :patient_id AND episode_id = :episode_id"
+        );
+        $stmt->execute([
+            'remarks' => $complaintSummary,
+            'session_id' => $sessionId,
+            'patient_id' => $patientId,
+            'episode_id' => $episodeId,
+        ]);
+
+        return [
+            'success' => $stmt->rowCount() >= 0,
+            'session_id' => $sessionId,
+        ];
+    }
+
     public function updateSession($sessionId, array $data) {
         $existingStmt = $this->pdo->prepare(
             "SELECT patient_id, episode_id FROM treatment_sessions WHERE id = ?"

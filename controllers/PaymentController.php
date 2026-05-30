@@ -129,6 +129,20 @@ class PaymentController {
         $this->savePayment($data);
     }
 
+    public function recordEpisodeFee($patientId, $episodeId, $episodeDate, $amount) {
+        $data = [
+            'patient_id' => $patientId,
+            'payment_date' => $episodeDate,
+            'amount' => $amount,
+            'transaction_type' => 'charge',
+            'episode_id' => $episodeId,
+            'session_reference' => 'episode:' . $episodeId,
+            'notes' => 'Episode fee',
+        ];
+
+        $this->savePayment($data);
+    }
+
     public function removeSessionCharges($patientId, $episodeId, $sessionId, $sessionDate = null) {
         $references = [];
         if ($sessionId !== null) {

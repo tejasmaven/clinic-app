@@ -2,7 +2,7 @@
 require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
-if (!in_array($_SESSION['role'] ?? '', ['Admin','Doctor','Receptionist'])) {
+if (!in_array($_SESSION['role'] ?? '', ['Admin','Receptionist'])) {
     header('Location: ../login.php');
     exit;
 }

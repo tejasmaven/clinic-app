@@ -20,6 +20,8 @@ $contentClass = $isAdmin ? 'admin-content' : 'workspace-content';
 $headerClass = $isAdmin ? 'admin-page-header' : 'workspace-page-header';
 $titleClass = $isAdmin ? 'admin-page-title' : 'workspace-page-title';
 $subtitleClass = $isAdmin ? 'admin-page-subtitle' : 'workspace-page-subtitle';
+$canEditFullSession = $isAdmin;
+$canEditSessionAmount = $isAdmin;
 
 $patient_id = isset($_GET['patient_id']) ? (int) $_GET['patient_id'] : 0;
 $episode_id = isset($_GET['episode_id']) ? (int) $_GET['episode_id'] : 0;
@@ -178,7 +180,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'delete_session') {
         $sessionId = isset($_POST['session_id']) ? (int) $_POST['session_id'] : 0;
 
-        if ($sessionId <= 0) {
+        if (!$isAdmin) {
+            $msg = 'Only admin users can delete treatment sessions.';
+        } elseif ($sessionId <= 0) {
             $msg = 'Invalid session selected for deletion.';
         } else {
             $sessionDetails = $treatmentController->getSessionById($sessionId);
@@ -226,17 +230,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : null;
         $uploadedSessionFile = $_FILES['session_file'] ?? null;
         $hasSessionFileUpload = $uploadedSessionFile && ($uploadedSessionFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+        $doctorComplaintOnlyUpdate = !$isAdmin && $action === 'update_session';
         $sessionFileTypeId = isset($_POST['session_file_type_id']) && $_POST['session_file_type_id'] !== ''
             ? (int) $_POST['session_file_type_id']
             : null;
 
-        if ($primaryTherapistId <= 0 || !isset($therapistMap[$primaryTherapistId])) {
+        if (!$doctorComplaintOnlyUpdate && ($primaryTherapistId <= 0 || !isset($therapistMap[$primaryTherapistId]))) {
             $msg = 'Please select a valid primary therapist.';
-        } elseif ($secondaryTherapistId !== null && !isset($therapistMap[$secondaryTherapistId])) {
+        } elseif (!$doctorComplaintOnlyUpdate && $secondaryTherapistId !== null && !isset($therapistMap[$secondaryTherapistId])) {
             $msg = 'Please select a valid secondary therapist.';
-        } elseif ($secondaryTherapistId !== null && $secondaryTherapistId === $primaryTherapistId) {
+        } elseif (!$doctorComplaintOnlyUpdate && $secondaryTherapistId !== null && $secondaryTherapistId === $primaryTherapistId) {
             $msg = 'Primary and secondary therapist cannot be the same.';
-        } elseif ($hasSessionFileUpload && ($sessionFileTypeId === null || !isset($patientReportFileTypeMap[$sessionFileTypeId]))) {
+        } elseif (!$doctorComplaintOnlyUpdate && $hasSessionFileUpload && ($sessionFileTypeId === null || !isset($patientReportFileTypeMap[$sessionFileTypeId]))) {
             $msg = 'Please select a valid file type for the uploaded file.';
         } else {
             $additionalNotes = trim($_POST['additional_treatment_notes'] ?? '');
@@ -273,10 +278,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'file_type_id' => $hasSessionFileUpload ? $sessionFileTypeId : null,
             ];
 
-            // Doctors cannot alter session amount; force zero for all submissions.
             $amount = 0.0;
+            if ($isAdmin) {
+                $rawAmount = trim((string) ($_POST['session_amount'] ?? ''));
+                if ($rawAmount === '' || !is_numeric($rawAmount) || (float) $rawAmount < 0) {
+                    $msg = 'Please enter a valid numeric session amount.';
+                } else {
+                    $amount = (float) $rawAmount;
+                }
+            }
 
-            if ($action === 'update_session') {
+            if ($msg !== null) {
+                // Validation error already set.
+            } elseif ($action === 'update_session') {
                 $sessionId = isset($_POST['session_id']) ? (int) $_POST['session_id'] : 0;
 
                 if ($sessionId <= 0) {
@@ -293,26 +307,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         $previousSessionDate = $existingSession['session_date'];
 
-                        $result = $treatmentController->updateSession($sessionId, $data);
+                        if ($doctorComplaintOnlyUpdate) {
+                            $result = $treatmentController->updateSessionComplaintSummary(
+                                $sessionId,
+                                $patient_id,
+                                $episode_id,
+                                $data['remarks'] ?? ''
+                            );
+                        } else {
+                            $result = $treatmentController->updateSession($sessionId, $data);
+                        }
 
                         if (is_array($result) && !empty($result['success'])) {
-                            try {
-                                $paymentController->removeSessionCharges(
-                                    $patient_id,
-                                    $episode_id,
-                                    $sessionId,
-                                    $previousSessionDate
-                                );
+                            if ($isAdmin) {
+                                try {
+                                    $paymentController->removeSessionCharges(
+                                        $patient_id,
+                                        $episode_id,
+                                        $sessionId,
+                                        $previousSessionDate
+                                    );
 
-                                $paymentController->recordSessionPayment(
-                                    $data['patient_id'],
-                                    $data['episode_id'],
-                                    $data['session_date'],
-                                    $amount,
-                                    $sessionId
-                                );
-                            } catch (Exception $e) {
-                                $msg = 'Session updated but payment update failed: ' . $e->getMessage();
+                                    $paymentController->recordSessionPayment(
+                                        $data['patient_id'],
+                                        $data['episode_id'],
+                                        $data['session_date'],
+                                        $amount,
+                                        $sessionId
+                                    );
+                                } catch (Exception $e) {
+                                    $msg = 'Session updated but payment update failed: ' . $e->getMessage();
+                                }
                             }
 
                             if ($msg === null) {
@@ -332,16 +357,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (is_array($result) && !empty($result['success'])) {
                     $sessionId = isset($result['session_id']) ? (int) $result['session_id'] : null;
-                    try {
-                        $paymentController->recordSessionPayment(
-                            $data['patient_id'],
-                            $data['episode_id'],
-                            $data['session_date'],
-                            $amount,
-                            $sessionId
-                        );
-                    } catch (Exception $e) {
-                        $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
+                    if ($isAdmin) {
+                        try {
+                            $paymentController->recordSessionPayment(
+                                $data['patient_id'],
+                                $data['episode_id'],
+                                $data['session_date'],
+                                $amount,
+                                $sessionId
+                            );
+                        } catch (Exception $e) {
+                            $msg = 'Treatment saved, but payment entry failed: ' . $e->getMessage();
+                        }
                     }
 
                     if ($msg === null) {
@@ -376,7 +403,21 @@ if ($editSessionId > 0) {
     }
 }
 
+if (!$isAdmin) {
+    if (is_array($latestSessionData)) {
+        $latestSessionData['amount'] = null;
+    }
+    foreach ($previousSessionsWithDetails as &$sessionWithDetails) {
+        $sessionWithDetails['amount'] = null;
+    }
+    unset($sessionWithDetails);
+    if (is_array($editingSessionData)) {
+        $editingSessionData['amount'] = null;
+    }
+}
+
 $isEditingSession = $editingSessionData !== null;
+$doctorComplaintOnlyEdit = $isEditingSession && !$isAdmin;
 
 $selectedPrimaryTherapistId = '';
 if (isset($_POST['primary_therapist_id'])) {
@@ -397,7 +438,8 @@ if (isset($_POST['secondary_therapist_id'])) {
 
 $sessionDateValue = $_POST['session_date']
     ?? ($isEditingSession ? ($editingSessionData['session_date'] ?? date('Y-m-d')) : date('Y-m-d'));
-$sessionAmountValue = '0';
+$sessionAmountValue = $_POST['session_amount']
+    ?? ($isAdmin && $isEditingSession && $editingSessionData['amount'] !== null ? number_format((float) $editingSessionData['amount'], 2, '.', '') : '0');
 $remarksValue = $_POST['remarks']
     ?? ($isEditingSession ? ($editingSessionData['remarks'] ?? '') : '');
 $progressNotesValue = $_POST['progress_notes']
@@ -584,11 +626,13 @@ include '../../includes/header.php';
                                               <?php else: ?>
                                                 <a href="start_treatment.php?episode_id=<?= $episode_id ?>&patient_id=<?= $patient_id ?>&edit_session_id=<?= (int) $session['session_id'] ?>" class="btn btn-sm btn-outline-primary">Edit Session</a>
                                               <?php endif; ?>
-                                              <form method="POST" class="delete-session-form">
-                                                <input type="hidden" name="action" value="delete_session">
-                                                <input type="hidden" name="session_id" value="<?= (int) $session['session_id'] ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete Session</button>
-                                              </form>
+                                              <?php if ($isAdmin): ?>
+                                                <form method="POST" class="delete-session-form">
+                                                  <input type="hidden" name="action" value="delete_session">
+                                                  <input type="hidden" name="session_id" value="<?= (int) $session['session_id'] ?>">
+                                                  <button type="submit" class="btn btn-sm btn-outline-danger">Delete Session</button>
+                                                </form>
+                                              <?php endif; ?>
                                             </div>
                                           <?php endif; ?>
                                           <?php if ($isCurrentEditingSession): ?>
@@ -702,6 +746,9 @@ include '../../includes/header.php';
       <?php if ($isEditingSession && $editingSessionData): ?>
         <div class="alert alert-warning mb-3">
           Editing session dated <?= htmlspecialchars(format_display_date($editingSessionData['session_date'])) ?>.
+          <?php if ($doctorComplaintOnlyEdit): ?>
+            Doctors can update only the complaint summary for existing sessions.
+          <?php endif; ?>
         </div>
       <?php endif; ?>
       <form method="POST" enctype="multipart/form-data" class="d-flex flex-column gap-3">
@@ -799,16 +846,17 @@ include '../../includes/header.php';
         <div class="row g-3">
           <div class="col-12 col-md-3">
             <label class="form-label" for="session_date">Session Date</label>
-            <input type="date" name="session_date" id="session_date" class="form-control" value="<?= htmlspecialchars($sessionDateValue) ?>" required>
+            <input type="date" name="session_date" id="session_date" class="form-control" value="<?= htmlspecialchars($sessionDateValue) ?>" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?> required>
           </div>
-          <div class="col-12 col-md-3">
-            <label class="form-label" for="session_amount">Session Amount</label>
-            <input type="number" step="0.01" min="0" name="session_amount" id="session_amount" class="form-control" value="<?= htmlspecialchars($sessionAmountValue) ?>" readonly required>
-            <div class="form-text">Amount entry is disabled for doctors and will be recorded as 0.</div>
-          </div>
+          <?php if ($isAdmin): ?>
+            <div class="col-12 col-md-3">
+              <label class="form-label" for="session_amount">Session Amount</label>
+              <input type="number" step="0.01" min="0" name="session_amount" id="session_amount" class="form-control" value="<?= htmlspecialchars($sessionAmountValue) ?>" required>
+            </div>
+          <?php endif; ?>
           <div class="col-12 col-md-3">
             <label class="form-label" for="session_file_type_id">File Type</label>
-            <select name="session_file_type_id" id="session_file_type_id" class="form-select">
+            <select name="session_file_type_id" id="session_file_type_id" class="form-select" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
               <option value="">Select file type</option>
               <?php foreach ($patientReportFileTypes as $fileType): ?>
                 <option value="<?= (int) $fileType['id'] ?>" <?= ((string) $fileType['id'] === $selectedFileTypeId) ? 'selected' : '' ?>>
@@ -820,14 +868,14 @@ include '../../includes/header.php';
           </div>
           <div class="col-12 col-md-3">
             <label class="form-label" for="session_file">Upload File (optional)</label>
-            <input type="file" name="session_file" id="session_file" class="form-control">
+            <input type="file" name="session_file" id="session_file" class="form-control" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
           </div>
         </div>
 
         <div class="row g-3">
           <div class="col-12 col-md-6">
             <label class="form-label" for="primary_therapist_id">Primary Therapist</label>
-            <select name="primary_therapist_id" id="primary_therapist_id" class="form-select" required>
+            <select name="primary_therapist_id" id="primary_therapist_id" class="form-select" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?> required>
               <option value="">Select Primary Therapist</option>
               <?php if (empty($therapists)): ?>
                 <option value="" disabled>No active doctors available</option>
@@ -842,7 +890,7 @@ include '../../includes/header.php';
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label" for="secondary_therapist_id">Secondary Therapist</label>
-            <select name="secondary_therapist_id" id="secondary_therapist_id" class="form-select">
+            <select name="secondary_therapist_id" id="secondary_therapist_id" class="form-select" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
               <option value="">Select Secondary Therapist (optional)</option>
               <?php foreach ($therapists as $therapist): ?>
                 <option value="<?= (int) $therapist['id'] ?>" <?= ((string) $therapist['id'] === $selectedSecondaryTherapistId) ? 'selected' : '' ?>>
@@ -856,7 +904,7 @@ include '../../includes/header.php';
         <div>
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">Prescribed Exercises</h5>
-            <button type="button" class="btn btn-outline-secondary" onclick="addExercise()">+ Add Exercise</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="addExercise()" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>+ Add Exercise</button>
           </div>
           <div id="exerciseContainer" class="mt-3 d-flex flex-column gap-3"></div>
         </div>
@@ -864,27 +912,27 @@ include '../../includes/header.php';
         <div>
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">Used Machines</h5>
-            <button type="button" class="btn btn-outline-secondary" onclick="addMachine()">+ Add Machine</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="addMachine()" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>+ Add Machine</button>
           </div>
           <div id="machineContainer" class="mt-3 d-flex flex-column gap-3"></div>
         </div>
 
         <div class="row g-3">
           <div class="col-12">
-            <label class="form-label" for="remarks">Doctor's Remarks</label>
+            <label class="form-label" for="remarks"><?= $doctorComplaintOnlyEdit ? 'Complaint Summary' : "Doctor's Remarks" ?></label>
             <textarea name="remarks" id="remarks" class="form-control" rows="3"><?= htmlspecialchars($remarksValue) ?></textarea>
           </div>
           <div class="col-12">
             <label class="form-label" for="progress_notes">Progress Notes</label>
-            <textarea name="progress_notes" id="progress_notes" class="form-control" rows="2"><?= htmlspecialchars($progressNotesValue) ?></textarea>
+            <textarea name="progress_notes" id="progress_notes" class="form-control" rows="2" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>><?= htmlspecialchars($progressNotesValue) ?></textarea>
           </div>
           <div class="col-12">
             <label class="form-label" for="advise">Advise</label>
-            <textarea name="advise" id="advise" class="form-control" rows="2"><?= htmlspecialchars($adviseValue) ?></textarea>
+            <textarea name="advise" id="advise" class="form-control" rows="2" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>><?= htmlspecialchars($adviseValue) ?></textarea>
           </div>
           <div class="col-12">
             <label class="form-label" for="additional_treatment_notes">Additional Treatment Notes</label>
-            <textarea name="additional_treatment_notes" id="additional_treatment_notes" class="form-control" rows="2"><?= htmlspecialchars($additionalTreatmentNotesValue) ?></textarea>
+            <textarea name="additional_treatment_notes" id="additional_treatment_notes" class="form-control" rows="2" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>><?= htmlspecialchars($additionalTreatmentNotesValue) ?></textarea>
           </div>
         </div>
 
@@ -904,6 +952,8 @@ include '../../includes/header.php';
   const exerciseGroups = <?= json_encode($exerciseGroups, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const editingSession = <?= json_encode($editingSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const isEditingSession = Boolean(editingSession && editingSession.id);
+  const canEditSessionAmount = <?= json_encode($canEditSessionAmount) ?>;
+  const doctorComplaintOnlyEdit = <?= json_encode($doctorComplaintOnlyEdit) ?>;
   const amountInput = document.getElementById('session_amount');
   const primaryTherapistSelect = document.getElementById('primary_therapist_id');
   const secondaryTherapistSelect = document.getElementById('secondary_therapist_id');
@@ -921,6 +971,9 @@ include '../../includes/header.php';
     lockSessionAmount();
     if (isEditingSession) {
       populateSessionForEditing(editingSession);
+      if (doctorComplaintOnlyEdit) {
+        disableTreatmentDetailEditing();
+      }
     } else {
       addExercise();
       addMachine();
@@ -932,6 +985,19 @@ include '../../includes/header.php';
     setupDeleteSessionForms();
     setupSessionFileTypeRequirement();
   });
+
+
+  function disableTreatmentDetailEditing() {
+    ['exerciseContainer', 'machineContainer'].forEach(id => {
+      const container = document.getElementById(id);
+      if (!container) {
+        return;
+      }
+      container.querySelectorAll('input, select, textarea, button').forEach(control => {
+        control.disabled = true;
+      });
+    });
+  }
 
   function setupSessionFileTypeRequirement() {
     if (!sessionFileInput || !sessionFileTypeSelect) {
@@ -970,9 +1036,15 @@ include '../../includes/header.php';
       return;
     }
 
+    if (canEditSessionAmount) {
+      if (previousAmount !== null && previousAmount !== undefined && previousAmount !== '') {
+        amountInput.value = Number(previousAmount).toFixed(2);
+      }
+      return;
+    }
+
     amountInput.readOnly = true;
-    const sanitizedAmount = Number(previousAmount) > 0 ? 0 : (Number.isFinite(Number(previousAmount)) ? Number(previousAmount) : 0);
-    amountInput.value = sanitizedAmount;
+    amountInput.value = 0;
   }
 
   function populateSessionForEditing(session) {
