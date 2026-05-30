@@ -5,7 +5,9 @@ requireLogin();
 requireRole(['Doctor', 'Admin']);
 
 require_once '../../controllers/TreatmentController.php';
+require_once '../../controllers/PaymentController.php';
 $treatmentController = new TreatmentController($pdo);
+$paymentController = new PaymentController($pdo);
 
 $isAdmin = ($_SESSION['role'] ?? '') === 'Admin';
 $patientsUrl = $isAdmin ? '../admin/manage_patients.php' : 'manage_patients.php';
@@ -14,6 +16,8 @@ $contentClass = $isAdmin ? 'admin-content' : 'workspace-content';
 $headerClass = $isAdmin ? 'admin-page-header' : 'workspace-page-header';
 $titleClass = $isAdmin ? 'admin-page-title' : 'workspace-page-title';
 $subtitleClass = $isAdmin ? 'admin-page-subtitle' : 'workspace-page-subtitle';
+$msg = null;
+$feeAmountValue = '';
 
 // Get patient_id from query string
 $patient_id = isset($_GET['patient_id']) ? (int) $_GET['patient_id'] : 0;
@@ -40,19 +44,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $start_date = $_POST['start_date'] ?? date('Y-m-d');
     $initial_complaints = trim($_POST['initial_complaints'] ?? '');
     $doctor_id = $_SESSION['user_id'] ?? null;
-    try {
-        $stmt = $pdo->prepare("INSERT INTO treatment_episodes 
-            (patient_id, start_date, initial_complaints, created_by, status) 
-            VALUES (?, ?, ?, ?, 'Active')");
-        $stmt->execute([$patient_id, $start_date, $initial_complaints, $doctor_id]);
+    $feeAmountValue = trim((string) ($_POST['fee_amount'] ?? ''));
+    $feeAmount = 0.0;
 
-        $episode_id = $pdo->lastInsertId();
+    if ($isAdmin) {
+        if ($feeAmountValue === '' || !is_numeric($feeAmountValue) || (float) $feeAmountValue < 0) {
+            $msg = 'Please enter a valid numeric fees amount.';
+        } else {
+            $feeAmount = (float) $feeAmountValue;
+        }
+    }
 
-        // Redirect to treatment screen
-        header("Location: start_treatment.php?episode_id=" . $episode_id."&patient_id=".$patient_id);
-        exit;
-    } catch (Exception $e) {
-        die("Error creating episode: " . $e->getMessage());
+    if ($msg === null) {
+        try {
+            $stmt = $pdo->prepare("INSERT INTO treatment_episodes
+                (patient_id, start_date, initial_complaints, created_by, status)
+                VALUES (?, ?, ?, ?, 'Active')");
+            $stmt->execute([$patient_id, $start_date, $initial_complaints, $doctor_id]);
+
+            $episode_id = (int) $pdo->lastInsertId();
+
+            if ($isAdmin) {
+                $paymentController->recordEpisodeFee($patient_id, $episode_id, $start_date, $feeAmount);
+            }
+
+            // Redirect to treatment screen
+            header("Location: start_treatment.php?episode_id=" . $episode_id."&patient_id=".$patient_id);
+            exit;
+        } catch (Exception $e) {
+            $msg = "Error creating episode: " . $e->getMessage();
+        }
     }
 }
 include '../../includes/header.php';
@@ -70,6 +91,10 @@ include '../../includes/header.php';
         <a href="<?= $patientsUrl ?>" class="btn btn-outline-secondary">Back to Patients</a>
       </div>
     </div>
+
+    <?php if (!empty($msg)): ?>
+      <div class="alert alert-warning"><?= htmlspecialchars($msg) ?></div>
+    <?php endif; ?>
 
     <div class="app-card mb-4">
       <h5 class="mb-3">Existing Episodes</h5>
@@ -98,9 +123,15 @@ include '../../includes/header.php';
           <label for="start_date" class="form-label">Start Date</label>
           <input type="date" name="start_date" id="start_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
         </div>
+        <?php if ($isAdmin): ?>
+          <div class="col-12 col-md-4">
+            <label for="fee_amount" class="form-label">Fees Amount</label>
+            <input type="number" step="0.01" min="0" name="fee_amount" id="fee_amount" class="form-control" value="<?= htmlspecialchars($feeAmountValue) ?>" placeholder="0.00" required>
+          </div>
+        <?php endif; ?>
         <div class="col-12">
           <label for="initial_complaints" class="form-label">Initial Complaint Summary</label>
-          <textarea name="initial_complaints" id="initial_complaints" class="form-control" rows="3" placeholder="Summarise the patient's presentation" required></textarea>
+          <textarea name="initial_complaints" id="initial_complaints" class="form-control" rows="3" placeholder="Summarise the patient's presentation" required><?= htmlspecialchars($_POST['initial_complaints'] ?? '') ?></textarea>
         </div>
         <div class="col-12 col-md-4 col-lg-3">
           <button type="submit" class="btn btn-success w-100">Create &amp; Proceed</button>
