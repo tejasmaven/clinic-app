@@ -236,6 +236,89 @@ include '../../includes/header.php';
   .exercise-toggle .exercise-indicator {
     font-size: 0.85rem;
   }
+
+  .bulk-select-column {
+    min-width: 6.5rem;
+    width: 6.5rem;
+    text-align: center;
+  }
+
+  .bulk-select-cell {
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .bulk-checkbox-wrap {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0.35rem;
+  }
+
+  .bulk-fee-checkbox {
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: #fff;
+    border: 3px solid #0d6efd;
+    border-radius: 0.35rem;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.16);
+    cursor: pointer;
+    flex: 0 0 auto;
+    height: 1.75rem;
+    margin: 0;
+    opacity: 1;
+    position: relative;
+    width: 1.75rem;
+  }
+
+  .bulk-fee-checkbox:checked {
+    background-color: #0d6efd;
+    border-color: #0a58ca;
+  }
+
+  .bulk-fee-checkbox:checked::after {
+    border: solid #fff;
+    border-width: 0 0.2rem 0.2rem 0;
+    content: '';
+    display: block;
+    height: 0.85rem;
+    left: 0.55rem;
+    position: absolute;
+    top: 0.25rem;
+    transform: rotate(45deg);
+    width: 0.45rem;
+  }
+
+  .bulk-fee-checkbox:focus-visible {
+    outline: 3px solid #212529;
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 575.98px) {
+    .bulk-select-column {
+      min-width: 5.5rem;
+      width: 5.5rem;
+    }
+
+    .bulk-checkbox-wrap {
+      min-height: 3rem;
+      min-width: 3rem;
+    }
+
+    .bulk-fee-checkbox {
+      height: 2rem;
+      width: 2rem;
+    }
+
+    .bulk-fee-checkbox:checked::after {
+      height: 1rem;
+      left: 0.65rem;
+      top: 0.3rem;
+      width: 0.5rem;
+    }
+  }
 </style>
 <div class="workspace-layout">
   <?php
@@ -337,7 +420,7 @@ include '../../includes/header.php';
           <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
-                <th scope="col">Select</th>
+                <th scope="col" class="bulk-select-column">Select</th>
                 <th scope="col">Treatment Date</th>
                 <th scope="col">Type</th>
                 <th scope="col">Amount</th>
@@ -366,11 +449,12 @@ include '../../includes/header.php';
                     $isCharge = $pay['transaction_type'] === 'charge';
                   ?>
                   <tr data-payment-id="<?= $pay['id'] ?>">
-                    <td>
+                    <td class="bulk-select-cell">
                       <?php if ($isCharge): ?>
-                        <div class="form-check bulk-control d-none mb-0">
-                          <input class="form-check-input bulk-fee-checkbox" type="checkbox" name="fees[<?= $pay['id'] ?>][selected]" value="1" disabled>
-                        </div>
+                        <label class="bulk-checkbox-wrap bulk-control d-none mb-0" title="Select this charge for bulk fee edit">
+                          <span class="visually-hidden">Select charge #<?= htmlspecialchars($pay['id']) ?> for bulk fee edit</span>
+                          <input class="bulk-fee-checkbox" type="checkbox" name="fees[<?= $pay['id'] ?>][selected]" value="1" disabled>
+                        </label>
                         <span class="text-muted fee-display">-</span>
                       <?php else: ?>
                         <span class="text-muted">-</span>
