@@ -180,7 +180,7 @@ class PaymentController {
                           AND ppl.transaction_type = 'charge'
                           AND (
                             ppl.session_reference = CONCAT('session:', ts.id)
-                            OR ppl.session_reference = ts.session_date
+                            OR ppl.session_reference = DATE_FORMAT(ts.session_date, '%Y-%m-%d')
                           )
                    )"
             );
