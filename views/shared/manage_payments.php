@@ -163,6 +163,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+try {
+    $paymentController->ensureSessionChargesForPatient($patientId);
+} catch (Exception $e) {
+    if ($msg === null) {
+        $msg = 'Unable to prepare treatment charges: ' . $e->getMessage();
+    }
+}
+
 $paymentTotals = $paymentController->getPatientTotals($patientId);
 $allPayments = $paymentController->getAllPaymentsByPatient($patientId);
 
@@ -425,7 +433,6 @@ include '../../includes/header.php';
                 <th scope="col">Type</th>
                 <th scope="col">Amount</th>
                 <th scope="col">Status</th>
-                <th scope="col">Session</th>
                 <th scope="col">Notes</th>
                 <th scope="col">Exercises</th>
                 <th scope="col">Action</th>
@@ -441,7 +448,6 @@ include '../../includes/header.php';
                     if ($pay['transaction_type'] === 'charge' && $pay['status'] === 'pending') {
                         $statusClass = 'bg-warning text-dark';
                     }
-                    $sessionDisplay = $pay['session_reference'] ? $pay['session_reference'] : '-';
                     $noteDisplay = $pay['notes'] ? $pay['notes'] : '-';
                     $matchingSessions = resolveSessionsForPayment($pay, $sessionLookupById, $sessionLookupByDate);
                     $ledgerTreatmentDate = getLedgerTreatmentDate($pay, $matchingSessions);
@@ -469,7 +475,6 @@ include '../../includes/header.php';
                       <?php endif; ?>
                     </td>
                     <td><span class="badge <?= $statusClass ?>"><?= ucfirst(htmlspecialchars($pay['status'])) ?></span></td>
-                    <td><?= htmlspecialchars($sessionDisplay) ?></td>
                     <td>
                       <div class="fee-display"><?= htmlspecialchars($noteDisplay) ?></div>
                       <?php if ($isCharge): ?>
@@ -477,6 +482,7 @@ include '../../includes/header.php';
                       <?php endif; ?>
                     </td>
                     <td>
+                      <?php if ($isCharge): ?>
                       <button
                         type="button"
                         class="btn btn-sm btn-outline-info d-flex align-items-center gap-2 exercise-toggle"
@@ -487,6 +493,9 @@ include '../../includes/header.php';
                         <span class="exercise-indicator">▼</span>
                         <span>Exercises</span>
                       </button>
+                      <?php else: ?>
+                        <span class="text-muted">-</span>
+                      <?php endif; ?>
                     </td>
                     <td class="text-nowrap">
                       <?php if ($pay['transaction_type'] === 'payment'): ?>
@@ -497,8 +506,9 @@ include '../../includes/header.php';
                       <?php endif; ?>
                     </td>
                   </tr>
+                  <?php if ($isCharge): ?>
                   <tr class="exercise-detail-row" id="<?= $detailRowId ?>" style="display: none;">
-                    <td colspan="9">
+                    <td colspan="8">
                       <?php if (!empty($matchingSessions)): ?>
                         <div class="d-flex flex-column gap-3">
                           <?php foreach ($matchingSessions as $session): ?>
@@ -596,10 +606,11 @@ include '../../includes/header.php';
                       <?php endif; ?>
                     </td>
                   </tr>
+                  <?php endif; ?>
                 <?php endforeach; ?>
               <?php else: ?>
                 <tr>
-                  <td colspan="9" class="text-center text-muted py-4">No payment records available.</td>
+                  <td colspan="8" class="text-center text-muted py-4">No payment records available.</td>
                 </tr>
               <?php endif; ?>
             </tbody>
@@ -619,6 +630,20 @@ include '../../includes/header.php';
     const bulkForm = document.getElementById('bulkFeeForm');
     const bulkInstructions = document.getElementById('bulkEditInstructions');
     const startActive = bulkForm && bulkForm.getAttribute('data-start-active') === '1';
+
+    function syncBulkRowInputs(checkbox, active) {
+      const row = checkbox.closest('tr');
+      if (!row) {
+        return;
+      }
+
+      row.querySelectorAll('.fee-amount-input, .fee-note-input').forEach(function (input) {
+        input.disabled = !active || !checkbox.checked;
+        if (!active) {
+          input.value = input.getAttribute('data-default') || '';
+        }
+      });
+    }
 
     function setBulkMode(active) {
       if (!bulkForm || !bulkModeInput || !toggleBtn || !saveBtn || !cancelBtn) {
@@ -641,17 +666,11 @@ include '../../includes/header.php';
         if (!active) {
           cb.checked = false;
         }
+        syncBulkRowInputs(cb, active);
       });
 
       document.querySelectorAll('.fee-display').forEach(function (el) {
         el.classList.toggle('d-none', active);
-      });
-
-      document.querySelectorAll('.fee-amount-input, .fee-note-input').forEach(function (input) {
-        input.disabled = !active;
-        if (!active) {
-          input.value = input.getAttribute('data-default') || '';
-        }
       });
 
       if (bulkInstructions) {
@@ -670,6 +689,12 @@ include '../../includes/header.php';
         setBulkMode(false);
       });
     }
+
+    document.querySelectorAll('.bulk-fee-checkbox').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        syncBulkRowInputs(cb, bulkModeInput && bulkModeInput.value === '1');
+      });
+    });
 
     if (startActive) {
       setBulkMode(true);

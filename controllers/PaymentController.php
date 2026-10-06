@@ -143,6 +143,68 @@ class PaymentController {
         $this->savePayment($data);
     }
 
+    public function ensureSessionChargesForPatient($patientId) {
+        $patientId = (int) $patientId;
+        if ($patientId <= 0) {
+            throw new InvalidArgumentException('Invalid patient ID.');
+        }
+
+        $useTransaction = !$this->pdo->inTransaction();
+        if ($useTransaction) {
+            $this->pdo->beginTransaction();
+        }
+
+        try {
+            $stmt = $this->pdo->prepare(
+                "INSERT INTO patient_payment_ledger
+                    (patient_id, transaction_date, amount, transaction_type, status, episode_id, session_reference, notes, created_at, updated_at)
+                 SELECT
+                    ts.patient_id,
+                    ts.session_date,
+                    COALESCE(te.fee_amount, 0.00),
+                    'charge',
+                    'pending',
+                    ts.episode_id,
+                    CONCAT('session:', ts.id),
+                    'Session charge',
+                    NOW(),
+                    NOW()
+                 FROM treatment_sessions ts
+                 LEFT JOIN treatment_episodes te ON te.id = ts.episode_id
+                 WHERE ts.patient_id = ?
+                   AND NOT EXISTS (
+                        SELECT 1
+                        FROM patient_payment_ledger ppl
+                        WHERE ppl.patient_id = ts.patient_id
+                          AND ppl.episode_id = ts.episode_id
+                          AND ppl.transaction_type = 'charge'
+                          AND (
+                            ppl.session_reference = CONCAT('session:', ts.id)
+                            OR ppl.session_reference = ts.session_date
+                          )
+                   )"
+            );
+            $stmt->execute([$patientId]);
+            $created = $stmt->rowCount();
+
+            if ($created > 0) {
+                $this->recalculateLedgerForPatient($patientId);
+            }
+
+            if ($useTransaction) {
+                $this->pdo->commit();
+            }
+
+            return $created;
+        } catch (Exception $e) {
+            if ($useTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw $e;
+        }
+    }
+
     public function removeSessionCharges($patientId, $episodeId, $sessionId, $sessionDate = null) {
         $references = [];
         if ($sessionId !== null) {
@@ -290,7 +352,7 @@ class PaymentController {
             $amount = isset($update['amount']) ? (float) $update['amount'] : 0.0;
             $notes = array_key_exists('notes', $update) ? $update['notes'] : null;
 
-            if ($id <= 0 || $amount <= 0) {
+            if ($id <= 0 || $amount < 0) {
                 return null;
             }
 

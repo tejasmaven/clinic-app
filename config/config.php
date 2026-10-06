@@ -22,7 +22,7 @@ define('BASE_URL', rtrim($baseUri, '/'));
 if($_SERVER['HTTP_HOST'] == 'localhost:8081')
 {
     $host = 'localhost';
-    $db   = 'physio_clinic';
+    $db   = 'physio_clinic_live';
     $user = 'root';
     $pass = '';
     $charset = 'utf8mb4';
