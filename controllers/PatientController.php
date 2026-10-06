@@ -140,7 +140,7 @@ class PatientController {
                     $safeName = time() . '_' . preg_replace('/[^A-Za-z0-9.\-_]/', '_', $original);
                     move_uploaded_file($_FILES['reports']['tmp_name'][$i], $uploadDir . $safeName);
                     $fileTypeId = !empty($data['report_file_type_ids'][$i]) ? (int) $data['report_file_type_ids'][$i] : null;
-                    $stmtFile = $this->pdo->prepare("INSERT INTO file_master (patient_id, file_name, file_type_id, upload_date) VALUES (:pid, :fname, :file_type_id, NOW())");
+                    $stmtFile = $this->pdo->prepare("INSERT INTO file_master (patient_id, file_name, file_type_id, treatment_session_id, upload_date) VALUES (:pid, :fname, :file_type_id, NULL, NOW())");
                     $stmtFile->execute([
                         ':pid' => $patientId,
                         ':fname' => $safeName,

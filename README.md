@@ -67,6 +67,7 @@ mysql -u root -p physio_clinic < config/machines.sql
 mysql -u root -p physio_clinic < config/treatment_machines.sql
 mysql -u root -p physio_clinic < config/patient_report_file_types.sql
 mysql -u root -p physio_clinic < config/file_master.sql
+mysql -u root -p physio_clinic < config/update_file_master_treatment_session_nullable.sql
 mysql -u root -p physio_clinic < config/payments.sql
 mysql -u root -p physio_clinic < config/update_treatment_episodes_add_fee_amount.sql
 mysql -u root -p physio_clinic < config/update_treatment_sessions_add_therapist_fields.sql
