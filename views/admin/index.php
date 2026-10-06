@@ -286,7 +286,7 @@ include '../../includes/header.php';
                     <p class="text-muted mb-0">Patients with completed treatment sessions recorded for <?= htmlspecialchars($completedTreatmentDate->format('F j, Y')) ?>, grouped by the doctor who attended them.</p>
                 </div>
                 <div class="d-flex justify-content-end">
-                    <form class="d-flex flex-nowrap gap-2 align-items-center justify-content-end overflow-auto" method="get">
+                    <form class="d-flex flex-wrap gap-2 align-items-center justify-content-end" method="get">
                         <input type="hidden" name="attendance_month" value="<?= htmlspecialchars($selectedMonth) ?>">
                         <input type="hidden" name="report_start" value="<?= htmlspecialchars($reportStartDate) ?>">
                         <input type="hidden" name="report_end" value="<?= htmlspecialchars($reportEndDate) ?>">
