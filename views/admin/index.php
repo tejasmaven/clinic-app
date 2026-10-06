@@ -251,25 +251,25 @@ include '../../includes/header.php';
         </div>
 
         <div class="app-card mb-4">
-            <div class="d-flex flex-column flex-lg-row gap-3 justify-content-between align-items-lg-start mb-3">
-                <div>
+            <div class="mb-3">
+                <div class="mb-3">
                     <div class="text-uppercase small text-muted fw-semibold">Selected Patient List</div>
                     <h5 class="mb-1">Completed Treatment <?= $isCompletedTreatmentToday ? 'Today' : 'on ' . htmlspecialchars($completedTreatmentDate->format('M j, Y')) ?></h5>
                     <p class="text-muted mb-0">Patients with completed treatment sessions recorded for <?= htmlspecialchars($completedTreatmentDate->format('F j, Y')) ?>, grouped by the doctor who attended them.</p>
                 </div>
-                <div class="d-flex flex-column align-items-lg-end gap-2">
-                    <span class="badge bg-success-subtle text-success border border-success-subtle align-self-start align-self-lg-end">
+                <div class="d-flex flex-column gap-2">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle">
                         <?= number_format(count($todaysCompletedPatients)) ?> <?= count($todaysCompletedPatients) === 1 ? 'record' : 'records' ?>
                     </span>
-                    <form class="d-flex flex-wrap gap-2 align-items-center" method="get">
+                    <form class="d-flex flex-nowrap gap-2 align-items-center overflow-auto" method="get">
                         <input type="hidden" name="attendance_month" value="<?= htmlspecialchars($selectedMonth) ?>">
                         <input type="hidden" name="report_start" value="<?= htmlspecialchars($reportStartDate) ?>">
                         <input type="hidden" name="report_end" value="<?= htmlspecialchars($reportEndDate) ?>">
-                        <a class="btn btn-outline-primary btn-sm" href="?attendance_month=<?= htmlspecialchars($selectedMonth) ?>&amp;report_start=<?= htmlspecialchars($reportStartDate) ?>&amp;report_end=<?= htmlspecialchars($reportEndDate) ?>&amp;completed_date=<?= htmlspecialchars($previousCompletedTreatmentDate) ?>">&larr; Previous Date</a>
+                        <a class="btn btn-outline-primary btn-sm flex-shrink-0" href="?attendance_month=<?= htmlspecialchars($selectedMonth) ?>&amp;report_start=<?= htmlspecialchars($reportStartDate) ?>&amp;report_end=<?= htmlspecialchars($reportEndDate) ?>&amp;completed_date=<?= htmlspecialchars($previousCompletedTreatmentDate) ?>">&larr; Previous Date</a>
                         <label class="visually-hidden" for="completed-date-admin">Select completed treatment date</label>
-                        <input class="form-control form-control-sm" style="max-width: 170px;" type="date" id="completed-date-admin" name="completed_date" value="<?= htmlspecialchars($completedTreatmentDateValue) ?>">
-                        <button class="btn btn-primary btn-sm" type="submit">View Date</button>
-                        <a class="btn btn-outline-primary btn-sm" href="?attendance_month=<?= htmlspecialchars($selectedMonth) ?>&amp;report_start=<?= htmlspecialchars($reportStartDate) ?>&amp;report_end=<?= htmlspecialchars($reportEndDate) ?>&amp;completed_date=<?= htmlspecialchars($nextCompletedTreatmentDate) ?>">Next Date &rarr;</a>
+                        <input class="form-control form-control-sm flex-shrink-0" style="max-width: 170px;" type="date" id="completed-date-admin" name="completed_date" value="<?= htmlspecialchars($completedTreatmentDateValue) ?>">
+                        <button class="btn btn-primary btn-sm flex-shrink-0" type="submit">View Date</button>
+                        <a class="btn btn-outline-primary btn-sm flex-shrink-0" href="?attendance_month=<?= htmlspecialchars($selectedMonth) ?>&amp;report_start=<?= htmlspecialchars($reportStartDate) ?>&amp;report_end=<?= htmlspecialchars($reportEndDate) ?>&amp;completed_date=<?= htmlspecialchars($nextCompletedTreatmentDate) ?>">Next Date &rarr;</a>
                     </form>
                 </div>
             </div>
@@ -281,7 +281,6 @@ include '../../includes/header.php';
                             <th scope="col" style="width: 80px;">#</th>
                             <th scope="col">Patient Name</th>
                             <th scope="col">Attended By</th>
-                            <th scope="col" class="text-center">Sessions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -291,12 +290,11 @@ include '../../includes/header.php';
                                     <td><?= number_format($index + 1) ?></td>
                                     <td class="fw-semibold"><?= htmlspecialchars($todaysPatient['patient_name'] !== '' ? $todaysPatient['patient_name'] : 'Unnamed patient') ?></td>
                                     <td><?= htmlspecialchars($todaysPatient['doctor_name'] ?: 'Unassigned doctor') ?></td>
-                                    <td class="text-center"><?= number_format((int) $todaysPatient['session_count']) ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">No patients have completed treatment on this date.</td>
+                                <td colspan="3" class="text-center text-muted py-4">No patients have completed treatment on this date.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
