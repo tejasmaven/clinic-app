@@ -168,6 +168,7 @@ $totalPatients = $pdo->query("SELECT COUNT(*) FROM patients")->fetchColumn();
 $activePatients = $pdo->query("SELECT COUNT(DISTINCT patient_id) FROM treatment_episodes WHERE status = 'Active'")->fetchColumn();
 $totalExercises = $pdo->query("SELECT COUNT(*) FROM exercises_master")->fetchColumn();
 $totalReferrals = $pdo->query("SELECT COUNT(*) FROM referral_sources")->fetchColumn();
+$totalMachines = $pdo->query("SELECT COUNT(*) FROM machines")->fetchColumn();
 
 $completedTreatmentDate = parseCompletedTreatmentDate($_GET['completed_date'] ?? null);
 $completedTreatmentDateValue = $completedTreatmentDate->format('Y-m-d');
@@ -175,6 +176,9 @@ $previousCompletedTreatmentDate = $completedTreatmentDate->modify('-1 day')->for
 $nextCompletedTreatmentDate = $completedTreatmentDate->modify('+1 day')->format('Y-m-d');
 $isCompletedTreatmentToday = $completedTreatmentDateValue === (new DateTimeImmutable('today'))->format('Y-m-d');
 $todaysCompletedPatients = getCompletedPatientsForDate($pdo, $completedTreatmentDate);
+$completedTodayCount = $isCompletedTreatmentToday
+    ? count($todaysCompletedPatients)
+    : count(getCompletedPatientsForDate($pdo, new DateTimeImmutable('today')));
 
 $monthStart = parseDashboardMonth($_GET['attendance_month'] ?? null);
 $monthEnd = $monthStart->modify('last day of this month');
@@ -184,6 +188,9 @@ $previousMonth = $monthStart->modify('-1 month')->format('Y-m');
 $nextMonth = $monthStart->modify('+1 month')->format('Y-m');
 $currentMonth = (new DateTimeImmutable('first day of this month'))->format('Y-m');
 $selectedMonth = $monthStart->format('Y-m');
+$monthlyTreatmentSessionsStmt = $pdo->prepare("SELECT COUNT(*) FROM treatment_sessions WHERE session_date >= ? AND session_date < ?");
+$monthlyTreatmentSessionsStmt->execute([$monthStart->format('Y-m-d'), $monthStart->modify('first day of next month')->format('Y-m-d')]);
+$monthlyTreatmentSessions = $monthlyTreatmentSessionsStmt->fetchColumn();
 $calendarVisits = getPatientAttendanceCalendar($pdo, $monthStart);
 $calendarDays = [];
 for ($day = $calendarStart; $day <= $calendarEnd; $day = $day->modify('+1 day')) {
@@ -248,20 +255,38 @@ include '../../includes/header.php';
                     <a href="<?= BASE_URL ?>/views/admin/manage_referrals.php" class="btn btn-light btn-sm mt-2">Manage Referrals</a>
                 </div>
             </div>
+            <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+                <div class="stat-card bg-danger text-white h-100">
+                    <div class="text-uppercase small text-white-50 fw-semibold">Completed Today</div>
+                    <div class="display-6 my-2"><?= number_format($completedTodayCount) ?></div>
+                    <a href="#completed-treatment-card" class="btn btn-light btn-sm mt-2">View List</a>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+                <div class="stat-card bg-dark text-white h-100">
+                    <div class="text-uppercase small text-white-50 fw-semibold">Sessions This Month</div>
+                    <div class="display-6 my-2"><?= number_format((int) $monthlyTreatmentSessions) ?></div>
+                    <a href="#patient-attendance-calendar" class="btn btn-light btn-sm mt-2">View Calendar</a>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+                <div class="stat-card bg-light text-dark h-100 border">
+                    <div class="text-uppercase small text-muted fw-semibold">Total Machines</div>
+                    <div class="display-6 my-2"><?= number_format((int) $totalMachines) ?></div>
+                    <a href="<?= BASE_URL ?>/views/admin/manage_machines.php" class="btn btn-outline-dark btn-sm mt-2">Manage Machines</a>
+                </div>
+            </div>
         </div>
 
-        <div class="app-card mb-4">
+        <div class="app-card mb-4" id="completed-treatment-card">
             <div class="mb-3">
                 <div class="mb-3">
                     <div class="text-uppercase small text-muted fw-semibold">Selected Patient List</div>
                     <h5 class="mb-1">Completed Treatment <?= $isCompletedTreatmentToday ? 'Today' : 'on ' . htmlspecialchars($completedTreatmentDate->format('M j, Y')) ?></h5>
                     <p class="text-muted mb-0">Patients with completed treatment sessions recorded for <?= htmlspecialchars($completedTreatmentDate->format('F j, Y')) ?>, grouped by the doctor who attended them.</p>
                 </div>
-                <div class="d-flex flex-column gap-2">
-                    <span class="badge bg-success-subtle text-success border border-success-subtle">
-                        <?= number_format(count($todaysCompletedPatients)) ?> <?= count($todaysCompletedPatients) === 1 ? 'record' : 'records' ?>
-                    </span>
-                    <form class="d-flex flex-nowrap gap-2 align-items-center overflow-auto" method="get">
+                <div class="d-flex justify-content-end">
+                    <form class="d-flex flex-nowrap gap-2 align-items-center justify-content-end overflow-auto" method="get">
                         <input type="hidden" name="attendance_month" value="<?= htmlspecialchars($selectedMonth) ?>">
                         <input type="hidden" name="report_start" value="<?= htmlspecialchars($reportStartDate) ?>">
                         <input type="hidden" name="report_end" value="<?= htmlspecialchars($reportEndDate) ?>">
@@ -302,7 +327,7 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <div class="app-card patient-calendar-card mb-4">
+        <div class="app-card patient-calendar-card mb-4" id="patient-attendance-calendar">
             <div class="d-flex flex-column flex-sm-row gap-3 justify-content-between align-items-sm-center mb-3">
                 <div>
                     <div class="text-uppercase small text-muted fw-semibold">Patient Attendance Calendar for All Doctors</div>
@@ -404,26 +429,28 @@ include '../../includes/header.php';
         <?php endforeach; ?>
 
         <div class="app-card mb-4">
-            <div class="d-flex flex-column flex-lg-row gap-3 justify-content-between align-items-lg-end mb-3">
-                <div>
+            <div class="mb-3">
+                <div class="mb-3">
                     <div class="text-uppercase small text-muted fw-semibold">Doctor Attendance Report</div>
                     <h5 class="mb-1">Patients Attended Between Dates</h5>
                     <p class="text-muted mb-0">Shows how many unique patients each doctor attended in the selected date range.</p>
                 </div>
-                <form class="row g-2 align-items-end" method="get">
-                    <input type="hidden" name="attendance_month" value="<?= htmlspecialchars($selectedMonth) ?>">
-                    <div class="col-12 col-sm-auto">
-                        <label for="report_start" class="form-label small text-muted mb-1">Start date</label>
-                        <input type="date" class="form-control form-control-sm" id="report_start" name="report_start" value="<?= htmlspecialchars($reportStartDate) ?>">
-                    </div>
-                    <div class="col-12 col-sm-auto">
-                        <label for="report_end" class="form-label small text-muted mb-1">End date</label>
-                        <input type="date" class="form-control form-control-sm" id="report_end" name="report_end" value="<?= htmlspecialchars($reportEndDate) ?>">
-                    </div>
-                    <div class="col-12 col-sm-auto">
-                        <button type="submit" class="btn btn-primary btn-sm w-100">Apply</button>
-                    </div>
-                </form>
+                <div class="d-flex justify-content-end">
+                    <form class="row g-2 align-items-end justify-content-end" method="get">
+                        <input type="hidden" name="attendance_month" value="<?= htmlspecialchars($selectedMonth) ?>">
+                        <div class="col-12 col-sm-auto">
+                            <label for="report_start" class="form-label small text-muted mb-1">Start date</label>
+                            <input type="date" class="form-control form-control-sm" id="report_start" name="report_start" value="<?= htmlspecialchars($reportStartDate) ?>">
+                        </div>
+                        <div class="col-12 col-sm-auto">
+                            <label for="report_end" class="form-label small text-muted mb-1">End date</label>
+                            <input type="date" class="form-control form-control-sm" id="report_end" name="report_end" value="<?= htmlspecialchars($reportEndDate) ?>">
+                        </div>
+                        <div class="col-12 col-sm-auto">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">Apply</button>
+                        </div>
+                    </form>
+                </div>
             </div>
 
             <div class="table-responsive">
