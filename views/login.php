@@ -30,7 +30,7 @@ include '../includes/header.php';
 ?>
 
 <div class="container mt-5" style="max-width:500px;">
-  <h4>Doctor / Receptionist Login</h4>
+  <h4><?= htmlspecialchars(get_site_name()) ?> Doctor / Receptionist Login</h4>
   <?php if (!empty($msg)): ?>
     <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
   <?php endif; ?>

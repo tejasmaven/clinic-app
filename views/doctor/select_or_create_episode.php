@@ -145,6 +145,55 @@ if ($editEpisodeId > 0) {
 include '../../includes/header.php';
 
 ?>
+<style>
+  .voice-textarea-control {
+    align-items: stretch;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .voice-textarea-control textarea {
+    min-height: 4.25rem;
+    resize: vertical;
+  }
+
+  .voice-textarea-button {
+    align-items: center;
+    border-radius: 0.75rem;
+    display: inline-flex;
+    flex: 0 0 2.75rem;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0;
+  }
+
+  .voice-textarea-icon {
+    background-color: currentColor;
+    display: inline-block;
+    height: 1.15rem;
+    width: 1.15rem;
+  }
+
+  .voice-textarea-icon-mic {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z'/%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2'/%3E%3Cpath d='M12 19v3'/%3E%3Cpath d='M8 22h8'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z'/%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2'/%3E%3Cpath d='M12 19v3'/%3E%3Cpath d='M8 22h8'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  .voice-textarea-icon-stop {
+    border-radius: 0.2rem;
+    display: none;
+    height: 0.9rem;
+    width: 0.9rem;
+  }
+
+  .voice-textarea-button.is-listening .voice-textarea-icon-mic {
+    display: none;
+  }
+
+  .voice-textarea-button.is-listening .voice-textarea-icon-stop {
+    display: inline-block;
+  }
+</style>
 <div class="<?= $layoutClass ?>">
   <?php include $isAdmin ? '../../layouts/admin_sidebar.php' : '../../layouts/doctor_sidebar.php'; ?>
   <div class="<?= $contentClass ?>">
@@ -185,7 +234,13 @@ include '../../includes/header.php';
           </div>
           <div class="col-12">
             <label for="edit_initial_complaints" class="form-label">Initial Complaint Summary</label>
-            <textarea name="initial_complaints" id="edit_initial_complaints" class="form-control" rows="3" placeholder="Summarise the patient's presentation" required><?= htmlspecialchars($editInitialComplaintsValue) ?></textarea>
+            <div class="voice-textarea-control">
+              <textarea name="initial_complaints" id="edit_initial_complaints" class="form-control" rows="3" placeholder="Summarise the patient's presentation" required><?= htmlspecialchars($editInitialComplaintsValue) ?></textarea>
+              <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="edit_initial_complaints" aria-label="Start voice typing for Initial Complaint Summary" title="Start voice typing">
+                <span class="voice-textarea-icon voice-textarea-icon-mic" aria-hidden="true"></span>
+                <span class="voice-textarea-icon voice-textarea-icon-stop" aria-hidden="true"></span>
+              </button>
+            </div>
           </div>
           <div class="col-12 col-md-4 col-lg-3">
             <button type="submit" class="btn btn-success w-100">Save Episode</button>
@@ -238,7 +293,13 @@ include '../../includes/header.php';
         <?php endif; ?>
         <div class="col-12">
           <label for="initial_complaints" class="form-label">Initial Complaint Summary</label>
-          <textarea name="initial_complaints" id="initial_complaints" class="form-control" rows="3" placeholder="Summarise the patient's presentation" required><?= htmlspecialchars($newInitialComplaintsValue) ?></textarea>
+          <div class="voice-textarea-control">
+            <textarea name="initial_complaints" id="initial_complaints" class="form-control" rows="3" placeholder="Summarise the patient's presentation" required><?= htmlspecialchars($newInitialComplaintsValue) ?></textarea>
+            <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="initial_complaints" aria-label="Start voice typing for Initial Complaint Summary" title="Start voice typing">
+              <span class="voice-textarea-icon voice-textarea-icon-mic" aria-hidden="true"></span>
+              <span class="voice-textarea-icon voice-textarea-icon-stop" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
         <div class="col-12 col-md-4 col-lg-3">
           <button type="submit" class="btn btn-success w-100">Create &amp; Proceed</button>
@@ -247,5 +308,132 @@ include '../../includes/header.php';
     </div>
   </div>
 </div>
+
+<script>
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceButtons = document.querySelectorAll('.voice-textarea-button');
+let activeRecognition = null;
+let activeVoiceBaseText = '';
+let activeVoiceFinalText = '';
+let shouldKeepListening = false;
+
+function joinVoiceText(...parts) {
+  return parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
+function updateVoiceText(textarea, interimText = '') {
+  textarea.value = joinVoiceText(activeVoiceBaseText, activeVoiceFinalText, interimText);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  textarea.focus();
+}
+
+function resetVoiceButton(button) {
+  if (!button) return;
+  button.classList.remove('is-listening');
+  button.classList.remove('btn-danger');
+  button.classList.add('btn-outline-primary');
+  button.setAttribute('aria-label', button.dataset.startLabel || 'Start voice typing');
+  button.title = 'Start voice typing';
+  button.disabled = false;
+}
+
+function resetVoiceState(button) {
+  resetVoiceButton(button);
+  voiceButtons.forEach((voiceButton) => {
+    const textarea = document.getElementById(voiceButton.dataset.voiceTarget);
+    voiceButton.disabled = !textarea || textarea.disabled;
+  });
+  activeRecognition = null;
+  activeVoiceBaseText = '';
+  activeVoiceFinalText = '';
+  shouldKeepListening = false;
+}
+
+if (!SpeechRecognition) {
+  voiceButtons.forEach((button) => {
+    button.disabled = true;
+    button.title = 'Voice typing is not supported in this browser. Please use Chrome or Edge.';
+  });
+} else {
+  voiceButtons.forEach((button) => {
+    button.dataset.startLabel = button.getAttribute('aria-label') || 'Start voice typing';
+
+    button.addEventListener('click', () => {
+      const textarea = document.getElementById(button.dataset.voiceTarget);
+      if (!textarea || textarea.disabled) return;
+
+      if (activeRecognition) {
+        shouldKeepListening = false;
+        activeRecognition.stop();
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      activeRecognition = recognition;
+      shouldKeepListening = true;
+      activeVoiceBaseText = textarea.value.trim();
+      activeVoiceFinalText = '';
+
+      recognition.lang = 'en-IN';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      voiceButtons.forEach((voiceButton) => {
+        voiceButton.disabled = voiceButton !== button;
+      });
+      button.disabled = false;
+      button.classList.add('is-listening');
+      button.classList.remove('btn-outline-primary');
+      button.classList.add('btn-danger');
+      button.setAttribute('aria-label', 'Stop voice typing');
+      button.title = 'Stop voice typing';
+
+      recognition.onresult = (event) => {
+        let interimText = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            activeVoiceFinalText = joinVoiceText(activeVoiceFinalText, transcript);
+          } else {
+            interimText = joinVoiceText(interimText, transcript);
+          }
+        }
+
+        updateVoiceText(textarea, interimText);
+      };
+
+      recognition.onerror = (event) => {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          shouldKeepListening = false;
+          alert('Microphone access is blocked. Please allow microphone permission and try again.');
+        }
+      };
+
+      recognition.onend = () => {
+        if (shouldKeepListening && activeRecognition === recognition) {
+          activeVoiceBaseText = textarea.value.trim();
+          activeVoiceFinalText = '';
+          recognition.start();
+          return;
+        }
+
+        resetVoiceState(button);
+      };
+
+      try {
+        recognition.start();
+      } catch (error) {
+        shouldKeepListening = false;
+        resetVoiceState(button);
+        alert('Voice typing could not be started. Please allow microphone access and try again.');
+      }
+    });
+  });
+}
+</script>
 
 <?php include '../../includes/footer.php'; ?>

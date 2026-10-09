@@ -62,6 +62,18 @@ $adminNavItems = [
         'matches' => ['medical_report.php'],
     ],
     [
+        'label' => 'Configuration',
+        'href' => BASE_URL . '/views/admin/configuration.php',
+        'matches' => ['configuration.php'],
+        'super_admin_only' => true,
+    ],
+    [
+        'label' => 'View Logs',
+        'href' => BASE_URL . '/views/admin/view_logs.php',
+        'matches' => ['view_logs.php'],
+        'super_admin_only' => true,
+    ],
+    [
         'label' => 'Logout',
         'href' => BASE_URL . '/views/shared/logout.php',
         'matches' => [],
@@ -72,6 +84,10 @@ if (!function_exists('renderAdminNavLinks')) {
     function renderAdminNavLinks(array $items, string $currentScript): void
     {
         foreach ($items as $item) {
+            if (!empty($item['super_admin_only']) && ($_SESSION['role'] ?? '') !== 'Super Admin') {
+                continue;
+            }
+
             $matches = $item['matches'] ?? [];
             $isActive = false;
 

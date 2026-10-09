@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS app_logs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  log_type VARCHAR(20) NOT NULL,
+  severity VARCHAR(20) NOT NULL DEFAULT 'info',
+  action VARCHAR(150) DEFAULT NULL,
+  message TEXT NOT NULL,
+  user_id INT DEFAULT NULL,
+  user_role VARCHAR(50) DEFAULT NULL,
+  user_name VARCHAR(150) DEFAULT NULL,
+  user_email VARCHAR(190) DEFAULT NULL,
+  request_method VARCHAR(10) DEFAULT NULL,
+  request_uri TEXT DEFAULT NULL,
+  ip_address VARCHAR(45) DEFAULT NULL,
+  user_agent TEXT DEFAULT NULL,
+  context_json JSON DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_log_type_created_at (log_type, created_at),
+  INDEX idx_severity_created_at (severity, created_at),
+  INDEX idx_user_role_created_at (user_role, created_at)
+);

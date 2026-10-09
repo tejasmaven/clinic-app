@@ -2,9 +2,16 @@
 
 class AdminController {
     private $pdo;
+    private $editableUserRoles = ['Doctor', 'Receptionist'];
 
     public function __construct($pdo) {
         $this->pdo = $pdo;
+    }
+
+    private function isManageableUser(int $id): bool {
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE id = ? AND role <> 'Super Admin'");
+        $stmt->execute([$id]);
+        return (int) $stmt->fetchColumn() > 0;
     }
 
     public function handleUserActions() {
@@ -15,6 +22,11 @@ class AdminController {
 
         if ($action === 'add_user') {
             $email = trim($_POST['email']);
+            $role = $_POST['role'] ?? '';
+
+            if (!in_array($role, $this->editableUserRoles, true)) {
+                return "Invalid user role.";
+            }
 
             $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE email = ? AND is_deleted = 0");
             $stmt->execute([$email]);
@@ -26,33 +38,55 @@ class AdminController {
             $stmt->execute([
                 trim($_POST['name']),
                 $email,
-                $_POST['role'],
+                $role,
                 password_hash($_POST['password'], PASSWORD_DEFAULT)
             ]);
             return "User added successfully.";
 
         } elseif ($action === 'edit_user' && $id) {
-            $stmt = $this->pdo->prepare("UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?");
+            $role = $_POST['role'] ?? '';
+
+            if (!in_array($role, $this->editableUserRoles, true)) {
+                return "Invalid user role.";
+            }
+
+            if (!$this->isManageableUser($id)) {
+                return "User cannot be updated.";
+            }
+
+            $stmt = $this->pdo->prepare("UPDATE users SET name = ?, email = ?, role = ? WHERE id = ? AND role <> 'Super Admin'");
             $stmt->execute([
                 trim($_POST['name']),
                 trim($_POST['email']),
-                $_POST['role'],
+                $role,
                 $id
             ]);
             return "User updated successfully.";
 
         } elseif ($action === 'delete_user' && $id) {
-            $stmt = $this->pdo->prepare("UPDATE users SET is_deleted = 1 WHERE id = ?");
+            if (!$this->isManageableUser($id)) {
+                return "User cannot be deleted.";
+            }
+
+            $stmt = $this->pdo->prepare("UPDATE users SET is_deleted = 1 WHERE id = ? AND role <> 'Super Admin'");
             $stmt->execute([$id]);
             return "User deleted.";
 
         } elseif ($action === 'restore_user' && $id) {
-            $stmt = $this->pdo->prepare("UPDATE users SET is_deleted = 0 WHERE id = ?");
+            if (!$this->isManageableUser($id)) {
+                return "User cannot be restored.";
+            }
+
+            $stmt = $this->pdo->prepare("UPDATE users SET is_deleted = 0 WHERE id = ? AND role <> 'Super Admin'");
             $stmt->execute([$id]);
             return "User restored.";
 
         } elseif ($action === 'toggle_user_status' && $id) {
-            $stmt = $this->pdo->prepare("UPDATE users SET is_active = NOT is_active WHERE id = ?");
+            if (!$this->isManageableUser($id)) {
+                return "User status cannot be updated.";
+            }
+
+            $stmt = $this->pdo->prepare("UPDATE users SET is_active = NOT is_active WHERE id = ? AND role <> 'Super Admin'");
             $stmt->execute([$id]);
             return "User status updated.";
         }
@@ -64,7 +98,7 @@ class AdminController {
         $offset = ($page - 1) * $limit;
         $showDeleted = isset($_GET['show_deleted']) ? 1 : 0;
 
-        $sql = "SELECT * FROM users WHERE is_deleted = ? AND (name LIKE ? OR email LIKE ?) ORDER BY id DESC LIMIT $limit OFFSET $offset";
+        $sql = "SELECT * FROM users WHERE is_deleted = ? AND role <> 'Super Admin' AND (name LIKE ? OR email LIKE ?) ORDER BY id DESC LIMIT $limit OFFSET $offset";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$showDeleted, "%$search%", "%$search%"]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -72,7 +106,7 @@ class AdminController {
 
     public function countUsers($search = '') {
         $showDeleted = isset($_GET['show_deleted']) ? 1 : 0;
-        $sql = "SELECT COUNT(*) FROM users WHERE is_deleted = ? AND (name LIKE ? OR email LIKE ?)";
+        $sql = "SELECT COUNT(*) FROM users WHERE is_deleted = ? AND role <> 'Super Admin' AND (name LIKE ? OR email LIKE ?)";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$showDeleted, "%$search%", "%$search%"]);
         return $stmt->fetchColumn();

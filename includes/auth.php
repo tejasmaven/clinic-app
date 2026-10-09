@@ -16,6 +16,10 @@ function requireRole($role, ?string $redirect = null) {
     requireLogin($redirectTo);
 
     $allowedRoles = is_array($role) ? $role : [$role];
+    if (in_array('Admin', $allowedRoles, true) && !in_array('Super Admin', $allowedRoles, true)) {
+        $allowedRoles[] = 'Super Admin';
+    }
+
     if (!in_array($_SESSION['role'] ?? '', $allowedRoles, true)) {
         header("Location: $redirectTo");
         exit;

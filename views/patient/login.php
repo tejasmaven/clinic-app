@@ -61,7 +61,7 @@ include '../../includes/header.php';
 <div class="container" style="max-width: 520px;">
     <div class="card shadow-sm">
         <div class="card-body p-4">
-            <h3 class="mb-3 text-center">Patient Login</h3>
+            <h3 class="mb-3 text-center"><?= htmlspecialchars(get_site_name()) ?> Patient Login</h3>
             <p class="text-muted text-center">Verify your mobile number to continue.</p>
 
             <?php if (!empty($msg)): ?>

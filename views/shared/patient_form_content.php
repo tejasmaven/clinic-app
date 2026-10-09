@@ -94,29 +94,101 @@
   <!-- Step 4 -->
   <div class="tab-pane fade" id="step4">
     <div class="row g-3">
-      <div class="col-12"><label>Allergy - medicines in use</label>
-        <textarea name="allergy_medicines_in_use" class="form-control"><?= htmlspecialchars($patient['allergy_medicines_in_use'] ?? '') ?></textarea>
+      <div class="col-12 patient-voice-field">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+          <label class="mb-0" for="allergy_medicines_in_use">Allergy - medicines in use</label>
+        </div>
+        <div class="patient-voice-control">
+          <textarea id="allergy_medicines_in_use" name="allergy_medicines_in_use" class="form-control patient-history-textarea"><?= htmlspecialchars($patient['allergy_medicines_in_use'] ?? '') ?></textarea>
+          <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="allergy_medicines_in_use" aria-label="Start voice typing for Allergy - medicines in use" title="Start voice typing">
+            <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+            <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
-      <div class="col-12"><label>Family history</label>
-        <textarea name="family_history" class="form-control"><?= htmlspecialchars($patient['family_history'] ?? '') ?></textarea>
+      <div class="col-12 patient-voice-field">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+          <label class="mb-0" for="family_history">Family history</label>
+        </div>
+        <div class="patient-voice-control">
+          <textarea id="family_history" name="family_history" class="form-control patient-history-textarea"><?= htmlspecialchars($patient['family_history'] ?? '') ?></textarea>
+          <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="family_history" aria-label="Start voice typing for Family history" title="Start voice typing">
+            <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+            <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
-      <div class="col-12"><label>History</label>
-        <textarea name="history" class="form-control"><?= htmlspecialchars($patient['history'] ?? '') ?></textarea>
+      <div class="col-12 patient-voice-field">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+          <label class="mb-0" for="history">History</label>
+        </div>
+        <div class="patient-voice-control">
+          <textarea id="history" name="history" class="form-control patient-history-textarea"><?= htmlspecialchars($patient['history'] ?? '') ?></textarea>
+          <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="history" aria-label="Start voice typing for History" title="Start voice typing">
+            <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+            <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
-      <div class="col-12"><label>Chief Complaints</label>
-        <textarea name="chief_complaints" class="form-control"><?= htmlspecialchars($patient['chief_complaints'] ?? '') ?></textarea>
+      <div class="col-12 patient-voice-field">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+          <label class="mb-0" for="chief_complaints">Chief Complaints</label>
+        </div>
+        <div class="patient-voice-control">
+          <textarea id="chief_complaints" name="chief_complaints" class="form-control patient-history-textarea"><?= htmlspecialchars($patient['chief_complaints'] ?? '') ?></textarea>
+          <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="chief_complaints" aria-label="Start voice typing for Chief Complaints" title="Start voice typing">
+            <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+            <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
-      <div class="col-12"><label>Assessment</label>
-        <textarea name="assessment" class="form-control"><?= htmlspecialchars($patient['assessment'] ?? '') ?></textarea>
+      <div class="col-12 patient-voice-field">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+          <label class="mb-0" for="assessment">Assessment</label>
+        </div>
+        <div class="patient-voice-control">
+          <textarea id="assessment" name="assessment" class="form-control patient-history-textarea"><?= htmlspecialchars($patient['assessment'] ?? '') ?></textarea>
+          <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="assessment" aria-label="Start voice typing for Assessment" title="Start voice typing">
+            <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+            <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
-      <div class="col-12"><label>Investigation</label>
-        <textarea name="investigation" class="form-control"><?= htmlspecialchars($patient['investigation'] ?? '') ?></textarea>
+      <div class="col-12 patient-voice-field">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+          <label class="mb-0" for="investigation">Investigation</label>
+        </div>
+        <div class="patient-voice-control">
+          <textarea id="investigation" name="investigation" class="form-control patient-history-textarea"><?= htmlspecialchars($patient['investigation'] ?? '') ?></textarea>
+          <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="investigation" aria-label="Start voice typing for Investigation" title="Start voice typing">
+            <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+            <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
-      <div class="col-12"><label>Diagnosis</label>
-        <textarea name="diagnosis" class="form-control"><?= htmlspecialchars($patient['diagnosis'] ?? '') ?></textarea>
+      <div class="col-12 patient-voice-field">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+          <label class="mb-0" for="diagnosis">Diagnosis</label>
+        </div>
+        <div class="patient-voice-control">
+          <textarea id="diagnosis" name="diagnosis" class="form-control patient-history-textarea"><?= htmlspecialchars($patient['diagnosis'] ?? '') ?></textarea>
+          <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="diagnosis" aria-label="Start voice typing for Diagnosis" title="Start voice typing">
+            <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+            <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
-      <div class="col-12"><label>Goal</label>
-        <textarea name="goal" class="form-control"><?= htmlspecialchars($patient['goal'] ?? '') ?></textarea>
+      <div class="col-12 patient-voice-field">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+          <label class="mb-0" for="goal">Goal</label>
+        </div>
+        <div class="patient-voice-control">
+          <textarea id="goal" name="goal" class="form-control patient-history-textarea"><?= htmlspecialchars($patient['goal'] ?? '') ?></textarea>
+          <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="goal" aria-label="Start voice typing for Goal" title="Start voice typing">
+            <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+            <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -167,6 +239,56 @@
     </div>
   </div>
 </div>
+
+<style>
+.patient-voice-control {
+  align-items: stretch;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.patient-history-textarea {
+  min-height: 4.25rem;
+  resize: vertical;
+}
+
+.patient-voice-button {
+  align-items: center;
+  border-radius: 0.75rem;
+  display: inline-flex;
+  flex: 0 0 2.75rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0;
+}
+
+.patient-voice-icon {
+  background-color: currentColor;
+  display: inline-block;
+  height: 1.15rem;
+  width: 1.15rem;
+}
+
+.patient-voice-icon-mic {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z'/%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2'/%3E%3Cpath d='M12 19v3'/%3E%3Cpath d='M8 22h8'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z'/%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2'/%3E%3Cpath d='M12 19v3'/%3E%3Cpath d='M8 22h8'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.patient-voice-icon-stop {
+  border-radius: 0.2rem;
+  display: none;
+  height: 0.9rem;
+  width: 0.9rem;
+}
+
+.patient-voice-button.is-listening .patient-voice-icon-mic {
+  display: none;
+}
+
+.patient-voice-button.is-listening .patient-voice-icon-stop {
+  display: inline-block;
+}
+</style>
 
 <!-- Nav Buttons -->
 <div class="mt-4 d-flex justify-content-between">
@@ -296,5 +418,135 @@ function toggleReferralOtherFields() {
 if (referralSelect) {
   referralSelect.addEventListener('change', toggleReferralOtherFields);
   toggleReferralOtherFields();
+}
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceButtons = document.querySelectorAll('.patient-voice-button');
+let activeRecognition = null;
+let activeVoiceButton = null;
+let shouldKeepListening = false;
+let activeVoiceBaseText = '';
+let activeVoiceFinalText = '';
+
+function joinVoiceText(...parts) {
+  return parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
+function updateVoiceText(textarea, interimText = '') {
+  textarea.value = joinVoiceText(activeVoiceBaseText, activeVoiceFinalText, interimText);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  textarea.focus();
+}
+
+function resetVoiceButton(button) {
+  if (!button) return;
+  button.classList.remove('is-listening');
+  button.classList.remove('btn-danger');
+  button.classList.add('btn-outline-primary');
+  button.setAttribute('aria-label', button.dataset.startLabel || 'Start voice typing');
+  button.title = 'Start voice typing';
+  button.disabled = false;
+}
+
+if (!SpeechRecognition) {
+  voiceButtons.forEach((button) => {
+    button.disabled = true;
+    button.title = 'Voice typing is not supported in this browser. Please use Chrome or Edge.';
+  });
+} else {
+  voiceButtons.forEach((button) => {
+    button.dataset.startLabel = button.getAttribute('aria-label') || 'Start voice typing';
+
+    button.addEventListener('click', () => {
+      const textarea = document.getElementById(button.dataset.voiceTarget);
+      if (!textarea) return;
+
+      if (activeRecognition) {
+        shouldKeepListening = false;
+        activeRecognition.stop();
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      activeRecognition = recognition;
+      activeVoiceButton = button;
+      shouldKeepListening = true;
+      activeVoiceBaseText = textarea.value.trim();
+      activeVoiceFinalText = '';
+
+      recognition.lang = 'en-IN';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      voiceButtons.forEach((voiceButton) => {
+        voiceButton.disabled = voiceButton !== button;
+      });
+      button.disabled = false;
+      button.classList.add('is-listening');
+      button.classList.remove('btn-outline-primary');
+      button.classList.add('btn-danger');
+      button.setAttribute('aria-label', 'Stop voice typing');
+      button.title = 'Stop voice typing';
+
+      recognition.onresult = (event) => {
+        let interimText = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            activeVoiceFinalText = joinVoiceText(activeVoiceFinalText, transcript);
+          } else {
+            interimText = joinVoiceText(interimText, transcript);
+          }
+        }
+
+        updateVoiceText(textarea, interimText);
+      };
+
+      recognition.onerror = (event) => {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          shouldKeepListening = false;
+          alert('Microphone access is blocked. Please allow microphone permission and try again.');
+        }
+      };
+
+      recognition.onend = () => {
+        if (shouldKeepListening && activeRecognition === recognition) {
+          activeVoiceBaseText = textarea.value.trim();
+          activeVoiceFinalText = '';
+          recognition.start();
+          return;
+        }
+
+        resetVoiceButton(button);
+        voiceButtons.forEach((voiceButton) => {
+          voiceButton.disabled = false;
+        });
+        activeRecognition = null;
+        activeVoiceButton = null;
+        shouldKeepListening = false;
+        activeVoiceBaseText = '';
+        activeVoiceFinalText = '';
+      };
+
+      try {
+        recognition.start();
+      } catch (error) {
+        shouldKeepListening = false;
+        resetVoiceButton(button);
+        voiceButtons.forEach((voiceButton) => {
+          voiceButton.disabled = false;
+        });
+        activeRecognition = null;
+        activeVoiceButton = null;
+        activeVoiceBaseText = '';
+        activeVoiceFinalText = '';
+        alert('Voice typing could not be started. Please allow microphone access and try again.');
+      }
+    });
+  });
 }
 </script>

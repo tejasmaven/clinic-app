@@ -72,6 +72,8 @@ mysql -u root -p physio_clinic < config/payments.sql
 mysql -u root -p physio_clinic < config/update_treatment_episodes_add_fee_amount.sql
 mysql -u root -p physio_clinic < config/update_treatment_sessions_add_therapist_fields.sql
 mysql -u root -p physio_clinic < config/exercise_groups.sql
+mysql -u root -p physio_clinic < config/app_settings.sql
+mysql -u root -p physio_clinic < config/app_logs.sql
 ```
 
 Do not run a migration again if the target columns or constraints already exist.
@@ -152,3 +154,30 @@ When Apache rewriting is enabled, the shorter Admin URL
 
 After signing in, confirm that the dashboard loads, database records can be read,
 and a test upload can be saved under `uploads/patient_docs/`.
+
+### 2.7 Create the hidden super admin login
+
+To create a super admin that can sign in from the Admin Login screen, update the
+values in `config/setup_super_admin.sql`. Generate the password hash with:
+
+```bash
+php -r "echo password_hash('change-this-password', PASSWORD_DEFAULT), PHP_EOL;"
+```
+
+Then run:
+
+```bash
+mysql -u root -p physio_clinic < config/setup_super_admin.sql
+```
+
+The super admin role has admin access throughout the application, but is hidden
+from the Manage Users screen and cannot be edited, deleted, restored, or
+deactivated through that screen.
+
+After signing in as the super admin, open Admin Panel > Configuration to upload
+the global JPG logo and update the site name shown in the browser title, navbar,
+landing page, and login pages.
+
+The super admin can also open Admin Panel > View Logs to search user action logs
+and highlighted application error logs. Actions performed by the super admin are
+not stored in the action log.

@@ -4,6 +4,7 @@
 
 
 define('ROLE_ADMIN', 'Admin');
+define('ROLE_SUPER_ADMIN', 'Super Admin');
 define('ROLE_RECEPTIONIST', 'Receptionist');
 define('ROLE_DOCTOR', 'Doctor');
 

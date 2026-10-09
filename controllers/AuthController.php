@@ -11,13 +11,20 @@ class AuthController {
     }
 
     public function AdminLogin($email, $password, $expectedRole = null) {
-        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE email = ? AND is_deleted = 0 AND is_active = 1 AND role = 'Admin'");
-        $stmt->execute([$email]);
+        $adminRoles = ['Admin', 'Super Admin'];
+        $rolePlaceholders = implode(',', array_fill(0, count($adminRoles), '?'));
+        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE email = ? AND is_deleted = 0 AND is_active = 1 AND role IN ($rolePlaceholders)");
+        $stmt->execute(array_merge([$email], $adminRoles));
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password_hash'])) {
 
-          if ($expectedRole && $user['role'] !== $expectedRole) {
+          $expectedRoles = $expectedRole ? (array) $expectedRole : [];
+          if (in_array('Admin', $expectedRoles, true) && !in_array('Super Admin', $expectedRoles, true)) {
+              $expectedRoles[] = 'Super Admin';
+          }
+
+          if ($expectedRoles && !in_array($user['role'], $expectedRoles, true)) {
                 return "Access denied for this role.";
             }
 

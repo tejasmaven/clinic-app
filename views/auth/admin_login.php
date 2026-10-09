@@ -8,7 +8,7 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_once '../../controllers/AuthController.php';
     $auth = new AuthController($pdo);
-    $error = $auth->AdminLogin($_POST['email'], $_POST['password'],'Admin');
+    $error = $auth->AdminLogin($_POST['email'], $_POST['password'], ['Admin', 'Super Admin']);
     if (!$error) {
         header("Location: ../admin/dashboard/");
         exit();
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php include '../../includes/header.php'; ?>
 <div class="row justify-content-center">
     <div class="col-md-6">
-        <h3>Admin Login</h3>
+        <h3><?= htmlspecialchars(get_site_name()) ?> Admin Login</h3>
         <?php if ($error) echo alert('danger', $error); ?>
         <form method="POST">
             <div class="mb-3">
