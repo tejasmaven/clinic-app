@@ -45,14 +45,22 @@ class TreatmentController {
 
             for ($i = 0; $i < $exerciseCount; $i++) {
                 $exerciseId = $exerciseIds[$i];
+                $customName = isset($exerciseNames[$i]) ? trim((string) $exerciseNames[$i]) : '';
+
+                if ($exerciseId === '' || $exerciseId === null) {
+                    if ($customName === '') {
+                        continue;
+                    }
+                    $exerciseId = 'other';
+                }
+
                 if ($exerciseId === 'other') {
-                    $name = trim($exerciseNames[$i] ?? '');
-                    if ($name === '') {
+                    if ($customName === '') {
                         throw new InvalidArgumentException('Exercise name is required when selecting Other.');
                     }
-                    $reps = $exerciseReps[$i] ?? 0;
-                    $dur = $exerciseDurations[$i] ?? 0;
-                    $exerciseId = $this->findOrCreateExercise($name, $reps, $dur);
+                    $reps = isset($exerciseReps[$i]) ? (int) $exerciseReps[$i] : 0;
+                    $duration = isset($exerciseDurations[$i]) ? (int) $exerciseDurations[$i] : 0;
+                    $exerciseId = $this->findOrCreateExercise($customName, $reps, $duration);
                 }
 
                 $stmtEx = $this->pdo->prepare("
