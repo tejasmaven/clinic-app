@@ -20,7 +20,6 @@ $contentClass = $isAdmin ? 'admin-content' : 'workspace-content';
 $headerClass = $isAdmin ? 'admin-page-header' : 'workspace-page-header';
 $titleClass = $isAdmin ? 'admin-page-title' : 'workspace-page-title';
 $subtitleClass = $isAdmin ? 'admin-page-subtitle' : 'workspace-page-subtitle';
-$canEditFullSession = $isAdmin;
 
 $patient_id = isset($_GET['patient_id']) ? (int) $_GET['patient_id'] : 0;
 $episode_id = isset($_GET['episode_id']) ? (int) $_GET['episode_id'] : 0;
@@ -237,18 +236,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : null;
         $uploadedSessionFile = $_FILES['session_file'] ?? null;
         $hasSessionFileUpload = $uploadedSessionFile && ($uploadedSessionFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
-        $doctorComplaintOnlyUpdate = !$isAdmin && $action === 'update_session';
         $sessionFileTypeId = isset($_POST['session_file_type_id']) && $_POST['session_file_type_id'] !== ''
             ? (int) $_POST['session_file_type_id']
             : null;
 
-        if (!$doctorComplaintOnlyUpdate && ($primaryTherapistId <= 0 || !isset($therapistMap[$primaryTherapistId]))) {
+        if ($primaryTherapistId <= 0 || !isset($therapistMap[$primaryTherapistId])) {
             $msg = 'Please select a valid primary therapist.';
-        } elseif (!$doctorComplaintOnlyUpdate && $secondaryTherapistId !== null && !isset($therapistMap[$secondaryTherapistId])) {
+        } elseif ($secondaryTherapistId !== null && !isset($therapistMap[$secondaryTherapistId])) {
             $msg = 'Please select a valid secondary therapist.';
-        } elseif (!$doctorComplaintOnlyUpdate && $secondaryTherapistId !== null && $secondaryTherapistId === $primaryTherapistId) {
+        } elseif ($secondaryTherapistId !== null && $secondaryTherapistId === $primaryTherapistId) {
             $msg = 'Primary and secondary therapist cannot be the same.';
-        } elseif (!$doctorComplaintOnlyUpdate && $hasSessionFileUpload && ($sessionFileTypeId === null || !isset($patientReportFileTypeMap[$sessionFileTypeId]))) {
+        } elseif ($hasSessionFileUpload && ($sessionFileTypeId === null || !isset($patientReportFileTypeMap[$sessionFileTypeId]))) {
             $msg = 'Please select a valid file type for the uploaded file.';
         } else {
             $additionalNotes = trim($_POST['additional_treatment_notes'] ?? '');
@@ -306,37 +304,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         $previousSessionDate = $existingSession['session_date'];
 
-                        if ($doctorComplaintOnlyUpdate) {
-                            $result = $treatmentController->updateSessionComplaintSummary(
-                                $sessionId,
-                                $patient_id,
-                                $episode_id,
-                                $data['remarks'] ?? ''
-                            );
-                        } else {
-                            $result = $treatmentController->updateSession($sessionId, $data);
-                        }
+                        $result = $treatmentController->updateSession($sessionId, $data);
 
                         if (is_array($result) && !empty($result['success'])) {
-                            if (!$doctorComplaintOnlyUpdate) {
-                                try {
-                                    $paymentController->removeSessionCharges(
-                                        $patient_id,
-                                        $episode_id,
-                                        $sessionId,
-                                        $previousSessionDate
-                                    );
+                            try {
+                                $paymentController->removeSessionCharges(
+                                    $patient_id,
+                                    $episode_id,
+                                    $sessionId,
+                                    $previousSessionDate
+                                );
 
-                                    $paymentController->recordSessionPayment(
-                                        $data['patient_id'],
-                                        $data['episode_id'],
-                                        $data['session_date'],
-                                        $amount,
-                                        $sessionId
-                                    );
-                                } catch (Exception $e) {
-                                    $msg = 'Session updated but payment update failed: ' . $e->getMessage();
-                                }
+                                $paymentController->recordSessionPayment(
+                                    $data['patient_id'],
+                                    $data['episode_id'],
+                                    $data['session_date'],
+                                    $amount,
+                                    $sessionId
+                                );
+                            } catch (Exception $e) {
+                                $msg = 'Session updated but payment update failed: ' . $e->getMessage();
                             }
 
                             if ($msg === null) {
@@ -412,7 +399,6 @@ if (is_array($editingSessionData)) {
 }
 
 $isEditingSession = $editingSessionData !== null;
-$doctorComplaintOnlyEdit = $isEditingSession && !$isAdmin;
 
 $selectedPrimaryTherapistId = '';
 if (isset($_POST['primary_therapist_id'])) {
@@ -787,9 +773,6 @@ include '../../includes/header.php';
       <?php if ($isEditingSession && $editingSessionData): ?>
         <div class="alert alert-warning mb-3">
           Editing session dated <?= htmlspecialchars(format_display_date($editingSessionData['session_date'])) ?>.
-          <?php if ($doctorComplaintOnlyEdit): ?>
-            Doctors can update only the complaint summary for existing sessions.
-          <?php endif; ?>
         </div>
       <?php endif; ?>
       <form method="POST" enctype="multipart/form-data" class="d-flex flex-column gap-3">
@@ -887,11 +870,11 @@ include '../../includes/header.php';
         <div class="row g-3">
           <div class="col-12 col-md-3">
             <label class="form-label" for="session_date">Session Date</label>
-            <input type="date" name="session_date" id="session_date" class="form-control" value="<?= htmlspecialchars($sessionDateValue) ?>" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?> required>
+            <input type="date" name="session_date" id="session_date" class="form-control" value="<?= htmlspecialchars($sessionDateValue) ?>" required>
           </div>
           <div class="col-12 col-md-3">
             <label class="form-label" for="session_file_type_id">File Type</label>
-            <select name="session_file_type_id" id="session_file_type_id" class="form-select" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
+            <select name="session_file_type_id" id="session_file_type_id" class="form-select">
               <option value="">Select file type</option>
               <?php foreach ($patientReportFileTypes as $fileType): ?>
                 <option value="<?= (int) $fileType['id'] ?>" <?= ((string) $fileType['id'] === $selectedFileTypeId) ? 'selected' : '' ?>>
@@ -903,14 +886,14 @@ include '../../includes/header.php';
           </div>
           <div class="col-12 col-md-3">
             <label class="form-label" for="session_file">Upload File (optional)</label>
-            <input type="file" name="session_file" id="session_file" class="form-control" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
+            <input type="file" name="session_file" id="session_file" class="form-control">
           </div>
         </div>
 
         <div class="row g-3">
           <div class="col-12 col-md-6">
             <label class="form-label" for="primary_therapist_id">Primary Therapist</label>
-            <select name="primary_therapist_id" id="primary_therapist_id" class="form-select" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?> required>
+            <select name="primary_therapist_id" id="primary_therapist_id" class="form-select" required>
               <option value="">Select Primary Therapist</option>
               <?php if (empty($therapists)): ?>
                 <option value="" disabled>No active doctors available</option>
@@ -925,7 +908,7 @@ include '../../includes/header.php';
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label" for="secondary_therapist_id">Secondary Therapist</label>
-            <select name="secondary_therapist_id" id="secondary_therapist_id" class="form-select" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
+            <select name="secondary_therapist_id" id="secondary_therapist_id" class="form-select">
               <option value="">Select Secondary Therapist (optional)</option>
               <?php foreach ($therapists as $therapist): ?>
                 <option value="<?= (int) $therapist['id'] ?>" <?= ((string) $therapist['id'] === $selectedSecondaryTherapistId) ? 'selected' : '' ?>>
@@ -939,7 +922,7 @@ include '../../includes/header.php';
         <div>
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">Prescribed Exercises</h5>
-            <button type="button" class="btn btn-outline-secondary" onclick="addExercise()" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>+ Add Exercise</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="addExercise()">+ Add Exercise</button>
           </div>
           <div id="exerciseContainer" class="mt-3 d-flex flex-column gap-3"></div>
         </div>
@@ -947,17 +930,17 @@ include '../../includes/header.php';
         <div>
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">Used Machines</h5>
-            <button type="button" class="btn btn-outline-secondary" onclick="addMachine()" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>+ Add Machine</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="addMachine()">+ Add Machine</button>
           </div>
           <div id="machineContainer" class="mt-3 d-flex flex-column gap-3"></div>
         </div>
 
         <div class="row g-3">
           <div class="col-12">
-            <label class="form-label" for="remarks"><?= $doctorComplaintOnlyEdit ? 'Complaint Summary' : "Doctor's Remarks" ?></label>
+            <label class="form-label" for="remarks">Doctor's Remarks</label>
             <div class="voice-textarea-control">
               <textarea name="remarks" id="remarks" class="form-control" rows="3"><?= htmlspecialchars($remarksValue) ?></textarea>
-              <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="remarks" aria-label="Start voice typing for <?= $doctorComplaintOnlyEdit ? 'Complaint Summary' : "Doctor's Remarks" ?>" title="Start voice typing">
+              <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="remarks" aria-label="Start voice typing for Doctor's Remarks" title="Start voice typing">
                 <span class="voice-textarea-icon voice-textarea-icon-mic" aria-hidden="true"></span>
                 <span class="voice-textarea-icon voice-textarea-icon-stop" aria-hidden="true"></span>
               </button>
@@ -966,8 +949,8 @@ include '../../includes/header.php';
           <div class="col-12">
             <label class="form-label" for="progress_notes">Progress Notes</label>
             <div class="voice-textarea-control">
-              <textarea name="progress_notes" id="progress_notes" class="form-control" rows="2" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>><?= htmlspecialchars($progressNotesValue) ?></textarea>
-              <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="progress_notes" aria-label="Start voice typing for Progress Notes" title="Start voice typing" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
+              <textarea name="progress_notes" id="progress_notes" class="form-control" rows="2"><?= htmlspecialchars($progressNotesValue) ?></textarea>
+              <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="progress_notes" aria-label="Start voice typing for Progress Notes" title="Start voice typing">
                 <span class="voice-textarea-icon voice-textarea-icon-mic" aria-hidden="true"></span>
                 <span class="voice-textarea-icon voice-textarea-icon-stop" aria-hidden="true"></span>
               </button>
@@ -976,8 +959,8 @@ include '../../includes/header.php';
           <div class="col-12">
             <label class="form-label" for="advise">Advise</label>
             <div class="voice-textarea-control">
-              <textarea name="advise" id="advise" class="form-control" rows="2" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>><?= htmlspecialchars($adviseValue) ?></textarea>
-              <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="advise" aria-label="Start voice typing for Advise" title="Start voice typing" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
+              <textarea name="advise" id="advise" class="form-control" rows="2"><?= htmlspecialchars($adviseValue) ?></textarea>
+              <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="advise" aria-label="Start voice typing for Advise" title="Start voice typing">
                 <span class="voice-textarea-icon voice-textarea-icon-mic" aria-hidden="true"></span>
                 <span class="voice-textarea-icon voice-textarea-icon-stop" aria-hidden="true"></span>
               </button>
@@ -986,8 +969,8 @@ include '../../includes/header.php';
           <div class="col-12">
             <label class="form-label" for="additional_treatment_notes">Additional Treatment Notes</label>
             <div class="voice-textarea-control">
-              <textarea name="additional_treatment_notes" id="additional_treatment_notes" class="form-control" rows="2" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>><?= htmlspecialchars($additionalTreatmentNotesValue) ?></textarea>
-              <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="additional_treatment_notes" aria-label="Start voice typing for Additional Treatment Notes" title="Start voice typing" <?= $doctorComplaintOnlyEdit ? 'disabled' : '' ?>>
+              <textarea name="additional_treatment_notes" id="additional_treatment_notes" class="form-control" rows="2"><?= htmlspecialchars($additionalTreatmentNotesValue) ?></textarea>
+              <button type="button" class="btn btn-outline-primary voice-textarea-button" data-voice-target="additional_treatment_notes" aria-label="Start voice typing for Additional Treatment Notes" title="Start voice typing">
                 <span class="voice-textarea-icon voice-textarea-icon-mic" aria-hidden="true"></span>
                 <span class="voice-textarea-icon voice-textarea-icon-stop" aria-hidden="true"></span>
               </button>
@@ -1011,7 +994,6 @@ include '../../includes/header.php';
   const exerciseGroups = <?= json_encode($exerciseGroups, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const editingSession = <?= json_encode($editingSessionData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   const isEditingSession = Boolean(editingSession && editingSession.id);
-  const doctorComplaintOnlyEdit = <?= json_encode($doctorComplaintOnlyEdit) ?>;
   const primaryTherapistSelect = document.getElementById('primary_therapist_id');
   const secondaryTherapistSelect = document.getElementById('secondary_therapist_id');
   const copyLastSessionInputs = document.querySelectorAll('input[name="copy_last_session"]');
@@ -1033,9 +1015,6 @@ include '../../includes/header.php';
   document.addEventListener('DOMContentLoaded', () => {
     if (isEditingSession) {
       populateSessionForEditing(editingSession);
-      if (doctorComplaintOnlyEdit) {
-        disableTreatmentDetailEditing();
-      }
     } else {
       addExercise();
       addMachine();
@@ -1167,18 +1146,6 @@ include '../../includes/header.php';
           resetVoiceState(button);
           alert('Voice typing could not be started. Please allow microphone access and try again.');
         }
-      });
-    });
-  }
-
-  function disableTreatmentDetailEditing() {
-    ['exerciseContainer', 'machineContainer'].forEach(id => {
-      const container = document.getElementById(id);
-      if (!container) {
-        return;
-      }
-      container.querySelectorAll('input, select, textarea, button').forEach(control => {
-        control.disabled = true;
       });
     });
   }
