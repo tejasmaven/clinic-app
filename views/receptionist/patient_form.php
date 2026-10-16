@@ -5,7 +5,9 @@ requireLogin();
 requireRole('Receptionist');
 
 require_once '../../controllers/PatientController.php';
+require_once '../../controllers/AssessmentController.php';
 $controller = new PatientController($pdo);
+$assessmentController = new AssessmentController($pdo);
 
 $id = $_GET['id'] ?? null;
 $editing = false;
@@ -32,6 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $referrals = $controller->getReferralSources();
 $fileTypes = $controller->getPatientReportFileTypes();
+$assessmentSections = $assessmentController->getSectionsWithItems(true);
+$patientAssessmentData = $editing && !empty($patient['id'])
+    ? $assessmentController->getPatientAssessment((int) $patient['id'])
+    : ['assessment' => null, 'answers' => []];
 include '../../includes/header.php';
 ?>
 <div class="workspace-layout">
@@ -43,6 +49,9 @@ include '../../includes/header.php';
         <p class="workspace-page-subtitle">Capture contact information and referral details accurately for every patient.</p>
       </div>
       <div class="d-flex gap-2">
+        <?php if ($editing && !empty($patient['id'])): ?>
+          <a href="../shared/patient_assessment.php?patient_id=<?= (int) $patient['id'] ?>" class="btn btn-outline-primary">Open Assessment</a>
+        <?php endif; ?>
         <a href="manage_patients.php" class="btn btn-outline-secondary">Back to Patients</a>
       </div>
     </div>

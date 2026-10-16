@@ -42,6 +42,11 @@ $doctorNavItems = [
         'matches' => ['manage_exercise_groups.php'],
     ],
     [
+        'label' => 'Assessment Setup',
+        'href' => BASE_URL . '/views/shared/assessment_setup.php',
+        'matches' => ['assessment_setup.php', 'assessment_questions.php'],
+    ],
+    [
         'label' => 'Logout',
         'href' => BASE_URL . '/views/shared/logout.php',
         'matches' => [],

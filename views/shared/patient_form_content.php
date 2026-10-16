@@ -3,8 +3,9 @@
   <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#step1">Step 1: Patient Information</a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step2">Step 2: Emergency Information</a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step3">Step 3: Referral</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step4">Step 4: Patient History</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step5">Step 5: Files</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step4">Step 4: Assessment</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step5">Step 5: Patient History</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#step6">Step 6: Files</a></li>
 </ul>
 
 <div class="tab-content border p-3 bg-light">
@@ -93,6 +94,143 @@
   </div>
   <!-- Step 4 -->
   <div class="tab-pane fade" id="step4">
+    <?php
+      $assessmentSections = $assessmentSections ?? [];
+      $patientAssessmentData = $patientAssessmentData ?? ['assessment' => null, 'answers' => []];
+      $assessmentAnswers = $_POST['answers'] ?? ($patientAssessmentData['answers'] ?? []);
+      $selectedAssessmentSectionIds = array_map('intval', $_POST['assessment_section_ids'] ?? []);
+
+      if (empty($selectedAssessmentSectionIds) && !empty($assessmentAnswers)) {
+          foreach ($assessmentSections as $assessmentSection) {
+              foreach ($assessmentSection['items'] ?? [] as $assessmentItem) {
+                  if (array_key_exists((int) $assessmentItem['id'], $assessmentAnswers)) {
+                      $selectedAssessmentSectionIds[] = (int) $assessmentSection['id'];
+                      break;
+                  }
+              }
+          }
+          $selectedAssessmentSectionIds = array_values(array_unique($selectedAssessmentSectionIds));
+      }
+
+      $assessmentDateValue = $_POST['assessment_date']
+          ?? ($patientAssessmentData['assessment']['assessment_date'] ?? date('Y-m-d'));
+      $assessmentNotesValue = $_POST['assessment_notes']
+          ?? ($patientAssessmentData['assessment']['notes'] ?? '');
+    ?>
+    <input type="hidden" name="assessment_capture" value="1">
+    <div class="row g-3">
+      <div class="col-12 col-md-4">
+        <label class="form-label" for="assessment_date">Assessment date</label>
+        <input class="form-control" type="date" id="assessment_date" name="assessment_date" value="<?= htmlspecialchars($assessmentDateValue) ?>">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Select assessment sections</label>
+        <?php if (!empty($assessmentSections)): ?>
+          <div class="assessment-section-picker">
+            <?php foreach ($assessmentSections as $assessmentSection): ?>
+              <?php
+                $sectionId = (int) $assessmentSection['id'];
+                $sectionChecked = in_array($sectionId, $selectedAssessmentSectionIds, true);
+              ?>
+              <label class="assessment-section-choice">
+                <input class="form-check-input assessment-section-toggle" type="checkbox" name="assessment_section_ids[]" value="<?= $sectionId ?>" data-section-id="<?= $sectionId ?>" <?= $sectionChecked ? 'checked' : '' ?>>
+                <span><?= htmlspecialchars($assessmentSection['title']) ?></span>
+              </label>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="text-muted">No active assessment sections have been configured yet.</div>
+        <?php endif; ?>
+      </div>
+
+      <?php foreach ($assessmentSections as $assessmentSection): ?>
+        <?php
+          $sectionId = (int) $assessmentSection['id'];
+          $sectionChecked = in_array($sectionId, $selectedAssessmentSectionIds, true);
+        ?>
+        <div class="col-12 assessment-section-panel<?= $sectionChecked ? '' : ' d-none' ?>" data-section-panel="<?= $sectionId ?>">
+          <div class="border rounded bg-white p-3">
+            <h6 class="mb-1"><?= htmlspecialchars($assessmentSection['title']) ?></h6>
+            <?php if (!empty($assessmentSection['description'])): ?>
+              <div class="text-muted small mb-3"><?= htmlspecialchars($assessmentSection['description']) ?></div>
+            <?php endif; ?>
+
+            <div class="assessment-answer-list">
+              <?php foreach ($assessmentSection['items'] ?? [] as $assessmentItem): ?>
+                <?php
+                  $itemId = (int) $assessmentItem['id'];
+                  $answerName = 'answers[' . $itemId . ']';
+                  $answerValue = (string) ($assessmentAnswers[$itemId] ?? '');
+                  $answerId = 'assessment_answer_' . $itemId;
+                ?>
+                <div class="assessment-answer-row">
+                  <label class="assessment-answer-label" for="<?= $answerId ?>">
+                    <?= htmlspecialchars($assessmentItem['label']) ?>
+                    <span class="badge bg-light text-dark"><?= $assessmentItem['item_type'] === 'examination' ? 'Exam' : 'Question' ?></span>
+                  </label>
+                  <div class="assessment-answer-control">
+                    <?php if (($assessmentItem['item_type'] ?? '') === 'question' && ($assessmentItem['input_type'] ?? '') === 'yes_no'): ?>
+                      <div class="assessment-radio-group">
+                        <?php foreach (['Yes', 'No'] as $yesNoOption): ?>
+                          <?php $radioId = $answerId . '_' . strtolower($yesNoOption); ?>
+                          <div class="form-check form-check-inline mb-0">
+                            <input class="form-check-input" type="radio" id="<?= $radioId ?>" name="<?= htmlspecialchars($answerName) ?>" value="<?= $yesNoOption ?>" <?= $answerValue === $yesNoOption ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="<?= $radioId ?>"><?= $yesNoOption ?></label>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php elseif (($assessmentItem['item_type'] ?? '') === 'question' && ($assessmentItem['input_type'] ?? '') === 'textarea'): ?>
+                      <div class="patient-voice-control">
+                        <textarea id="<?= $answerId ?>" name="<?= htmlspecialchars($answerName) ?>" class="form-control assessment-answer-textarea"><?= htmlspecialchars($answerValue) ?></textarea>
+                        <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="<?= $answerId ?>" aria-label="Start voice typing for assessment answer" title="Start voice typing">
+                          <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+                          <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+                        </button>
+                      </div>
+                    <?php elseif (($assessmentItem['item_type'] ?? '') === 'question' && ($assessmentItem['input_type'] ?? '') === 'number'): ?>
+                      <input class="form-control" type="number" step="0.01" id="<?= $answerId ?>" name="<?= htmlspecialchars($answerName) ?>" value="<?= htmlspecialchars($answerValue) ?>">
+                    <?php elseif (($assessmentItem['item_type'] ?? '') === 'question' && ($assessmentItem['input_type'] ?? '') === 'select'): ?>
+                      <select class="form-select" id="<?= $answerId ?>" name="<?= htmlspecialchars($answerName) ?>">
+                        <option value="">Select</option>
+                        <?php foreach (array_filter(array_map('trim', explode(',', (string) ($assessmentItem['option_values'] ?? '')))) as $assessmentOption): ?>
+                          <option value="<?= htmlspecialchars($assessmentOption) ?>" <?= $answerValue === $assessmentOption ? 'selected' : '' ?>><?= htmlspecialchars($assessmentOption) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    <?php else: ?>
+                      <div class="patient-voice-control">
+                        <input class="form-control" type="text" id="<?= $answerId ?>" name="<?= htmlspecialchars($answerName) ?>" value="<?= htmlspecialchars($answerValue) ?>">
+                        <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="<?= $answerId ?>" aria-label="Start voice typing for assessment answer" title="Start voice typing">
+                          <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+                          <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+                        </button>
+                      </div>
+                    <?php endif; ?>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+              <?php if (empty($assessmentSection['items'])): ?>
+                <div class="text-muted">No active questions configured for this section.</div>
+              <?php endif; ?>
+            </div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+
+      <div class="col-12 patient-voice-field">
+        <label class="form-label" for="assessment_notes">Assessment notes</label>
+        <div class="patient-voice-control">
+          <textarea id="assessment_notes" name="assessment_notes" class="form-control patient-history-textarea"><?= htmlspecialchars($assessmentNotesValue) ?></textarea>
+          <button type="button" class="btn btn-outline-primary patient-voice-button" data-voice-target="assessment_notes" aria-label="Start voice typing for Assessment notes" title="Start voice typing">
+            <span class="patient-voice-icon patient-voice-icon-mic" aria-hidden="true"></span>
+            <span class="patient-voice-icon patient-voice-icon-stop" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="tab-pane fade" id="step5">
     <div class="row g-3">
       <div class="col-12 patient-voice-field">
         <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
@@ -192,8 +330,8 @@
       </div>
     </div>
   </div>
-  <!-- Step 5 -->
-  <div class="tab-pane fade" id="step5">
+  <!-- Step 6 -->
+  <div class="tab-pane fade" id="step6">
     <div class="row g-3">
       <div class="col-md-12"><label>Reports Upload (max 5 files)</label>
         <input type="file" id="reports" name="reports[]" class="form-control" multiple>
@@ -241,6 +379,58 @@
 </div>
 
 <style>
+.assessment-section-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.assessment-section-choice {
+  align-items: center;
+  background-color: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.85rem;
+}
+
+.assessment-answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.assessment-answer-row {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.1fr);
+}
+
+.assessment-answer-label {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-weight: 600;
+  gap: 0.45rem;
+  margin-bottom: 0;
+}
+
+.assessment-answer-textarea {
+  min-height: 2.75rem;
+  resize: vertical;
+}
+
+@media (max-width: 767.98px) {
+  .assessment-answer-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+}
+
 .patient-voice-control {
   align-items: stretch;
   display: flex;
@@ -315,6 +505,7 @@ const referralOtherNameInput = document.querySelector('input[name="referral_sour
 const referralOtherTypeSelect = document.querySelector('select[name="referral_source_other_type"]');
 
 function showTab(n) {
+  currentTab = n;
   tabs.forEach((t, i) => {
     t.classList.remove('show', 'active');
     navLinks[i].classList.remove('active');
@@ -340,6 +531,13 @@ nextBtn.addEventListener('click', () => {
 
 prevBtn.addEventListener('click', () => {
   if (currentTab > 0) showTab(--currentTab);
+});
+
+navLinks.forEach((link, index) => {
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    showTab(index);
+  });
 });
 
 showTab(currentTab);
@@ -419,6 +617,24 @@ if (referralSelect) {
   referralSelect.addEventListener('change', toggleReferralOtherFields);
   toggleReferralOtherFields();
 }
+
+function syncAssessmentSections() {
+  document.querySelectorAll('.assessment-section-panel').forEach((panel) => {
+    const sectionId = panel.getAttribute('data-section-panel');
+    const toggle = document.querySelector(`.assessment-section-toggle[data-section-id="${sectionId}"]`);
+    const isSelected = Boolean(toggle && toggle.checked);
+
+    panel.classList.toggle('d-none', !isSelected);
+    panel.querySelectorAll('input, select, textarea, button.patient-voice-button').forEach((input) => {
+      input.disabled = !isSelected;
+    });
+  });
+}
+
+document.querySelectorAll('.assessment-section-toggle').forEach((toggle) => {
+  toggle.addEventListener('change', syncAssessmentSections);
+});
+syncAssessmentSections();
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const voiceButtons = document.querySelectorAll('.patient-voice-button');
@@ -525,6 +741,7 @@ if (!SpeechRecognition) {
         voiceButtons.forEach((voiceButton) => {
           voiceButton.disabled = false;
         });
+        syncAssessmentSections();
         activeRecognition = null;
         activeVoiceButton = null;
         shouldKeepListening = false;
@@ -540,6 +757,7 @@ if (!SpeechRecognition) {
         voiceButtons.forEach((voiceButton) => {
           voiceButton.disabled = false;
         });
+        syncAssessmentSections();
         activeRecognition = null;
         activeVoiceButton = null;
         activeVoiceBaseText = '';

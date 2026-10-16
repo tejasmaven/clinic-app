@@ -42,6 +42,11 @@ $adminNavItems = [
         'matches' => ['manage_exercise_groups.php'],
     ],
     [
+        'label' => 'Assessment Setup',
+        'href' => BASE_URL . '/views/shared/assessment_setup.php',
+        'matches' => ['assessment_setup.php', 'assessment_questions.php'],
+    ],
+    [
         'label' => 'Patient Report File Types',
         'href' => BASE_URL . '/views/admin/manage_patient_report_file_types.php',
         'matches' => ['manage_patient_report_file_types.php'],
@@ -55,6 +60,11 @@ $adminNavItems = [
         'label' => 'Financial Reports',
         'href' => BASE_URL . '/views/admin/financial_reports.php',
         'matches' => ['financial_reports.php'],
+    ],
+    [
+        'label' => 'Payment Slip Template',
+        'href' => BASE_URL . '/views/admin/payment_slip_template.php',
+        'matches' => ['payment_slip_template.php'],
     ],
     [
         'label' => 'Medical Report',

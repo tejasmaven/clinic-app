@@ -5,7 +5,9 @@ requireLogin();
 requireRole('Admin');
 
 require_once '../../controllers/PatientController.php';
+require_once '../../controllers/AssessmentController.php';
 $controller = new PatientController($pdo);
+$assessmentController = new AssessmentController($pdo);
 
 $id = $_GET['id'] ?? null;
 $editing = false;
@@ -33,6 +35,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $referrals = $controller->getReferralSources();
 $fileTypes = $controller->getPatientReportFileTypes();
+$assessmentSections = $assessmentController->getSectionsWithItems(true);
+$patientAssessmentData = $editing && !empty($patient['id'])
+    ? $assessmentController->getPatientAssessment((int) $patient['id'])
+    : ['assessment' => null, 'answers' => []];
 include '../../includes/header.php';
 ?>
 
@@ -44,6 +50,9 @@ include '../../includes/header.php';
                 <h1 class="admin-page-title"><?= $editing ? 'Edit' : 'Add' ?> Patient</h1>
                 <p class="admin-page-subtitle">Complete the multi-step intake to capture patient information.</p>
             </div>
+            <?php if ($editing && !empty($patient['id'])): ?>
+                <a href="../shared/patient_assessment.php?patient_id=<?= (int) $patient['id'] ?>" class="btn btn-outline-primary">Open Assessment</a>
+            <?php endif; ?>
         </div>
 
         <?php if (!empty($msg)): ?>

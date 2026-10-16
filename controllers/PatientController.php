@@ -150,8 +150,25 @@ class PatientController {
             }
         }
 
+        if (!empty($data['assessment_capture'])) {
+            require_once __DIR__ . '/AssessmentController.php';
+            $assessmentController = new AssessmentController($this->pdo);
+            $hasAssessmentData = !empty($data['assessment_section_ids'])
+                || !empty($data['answers'])
+                || trim((string) ($data['assessment_notes'] ?? '')) !== '';
+
+            if ($hasAssessmentData) {
+                $assessmentController->savePatientAssessment((int) $patientId, (int) ($_SESSION['user_id'] ?? 0), [
+                    'assessment_date' => $data['assessment_date'] ?? date('Y-m-d'),
+                    'notes' => $data['assessment_notes'] ?? '',
+                    'answers' => $data['answers'] ?? [],
+                    'assessment_section_ids' => $data['assessment_section_ids'] ?? [],
+                ]);
+            }
+        }
+
         return !empty($data['id']) ? "Patient updated successfully." : "Patient added successfully.";
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
         return "Error: " . $e->getMessage();
     }
 }
@@ -221,6 +238,19 @@ class PatientController {
                 ->execute([$patientId]);
             $this->pdo->prepare("DELETE FROM patient_credit_balances WHERE patient_id = ?")
                 ->execute([$patientId]);
+
+            if ($this->tableExists('patient_assessments')) {
+                $assessmentStmt = $this->pdo->prepare("SELECT id FROM patient_assessments WHERE patient_id = ?");
+                $assessmentStmt->execute([$patientId]);
+                $assessmentIds = $assessmentStmt->fetchAll(PDO::FETCH_COLUMN);
+                if (!empty($assessmentIds) && $this->tableExists('patient_assessment_answers')) {
+                    $assessmentPlaceholders = implode(', ', array_fill(0, count($assessmentIds), '?'));
+                    $this->pdo->prepare("DELETE FROM patient_assessment_answers WHERE assessment_id IN ($assessmentPlaceholders)")
+                        ->execute($assessmentIds);
+                }
+                $this->pdo->prepare("DELETE FROM patient_assessments WHERE patient_id = ?")
+                    ->execute([$patientId]);
+            }
 
             // Gather treatment episodes and sessions
             $episodeStmt = $this->pdo->prepare("SELECT id FROM treatment_episodes WHERE patient_id = ?");
@@ -393,5 +423,12 @@ class PatientController {
         }
 
         return $this->updatePatientPassword($patientId, $newPassword);
+    }
+
+    private function tableExists(string $tableName): bool {
+        $stmt = $this->pdo->prepare("SHOW TABLES LIKE ?");
+        $stmt->execute([$tableName]);
+
+        return (bool) $stmt->fetchColumn();
     }
 }

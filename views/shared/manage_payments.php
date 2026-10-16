@@ -2,7 +2,7 @@
 require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
-if (!in_array($_SESSION['role'] ?? '', ['Admin','Receptionist'])) {
+if (!in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin', 'Receptionist'], true)) {
     header('Location: ../login.php');
     exit;
 }
@@ -500,6 +500,7 @@ include '../../includes/header.php';
                     <td class="text-nowrap">
                       <?php if ($pay['transaction_type'] === 'payment'): ?>
                         <a href="?patient_id=<?= $patientId ?>&edit=<?= $pay['id'] ?>" class="btn btn-sm btn-outline-primary me-1">Edit</a>
+                        <a href="payment_receipt.php?patient_id=<?= $patientId ?>&payment_id=<?= $pay['id'] ?>" class="btn btn-sm btn-outline-success me-1">Receipt</a>
                         <a href="?patient_id=<?= $patientId ?>&delete=<?= $pay['id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete credit entry?');">Delete</a>
                       <?php else: ?>
                         <span class="text-muted small">Not available</span>
