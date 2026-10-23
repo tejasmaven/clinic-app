@@ -62,6 +62,11 @@ $adminNavItems = [
         'matches' => ['financial_reports.php'],
     ],
     [
+        'label' => 'Progress Tracker',
+        'href' => BASE_URL . '/views/admin/progress_tracker.php',
+        'matches' => ['progress_tracker.php'],
+    ],
+    [
         'label' => 'Payment Slip Template',
         'href' => BASE_URL . '/views/admin/payment_slip_template.php',
         'matches' => ['payment_slip_template.php'],
