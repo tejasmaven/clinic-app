@@ -8,6 +8,13 @@ if (!in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin', 'Doctor'], true)
     header('Location: ../login.php');
     exit;
 }
+requirePermission('assessment_setup.view');
+requireActionPermission([
+    'add_section' => 'assessment_setup.create_section',
+    'edit_section' => 'assessment_setup.edit_section',
+    'toggle_section' => 'assessment_setup.status',
+    'delete_section' => 'assessment_setup.delete',
+]);
 
 require_once '../../controllers/AssessmentController.php';
 $controller = new AssessmentController($pdo);
@@ -23,6 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $sections = $controller->getSectionsWithItems(false);
 $isAdmin = in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin'], true);
+$canCreateSection = hasPermission('assessment_setup.create_section');
+$canEditSection = hasPermission('assessment_setup.edit_section');
+$canChangeSectionStatus = hasPermission('assessment_setup.status');
+$canDeleteSection = hasPermission('assessment_setup.delete');
+$canManageQuestions = hasPermission('assessment_setup.questions');
 
 include '../../includes/header.php';
 ?>
@@ -41,6 +53,7 @@ include '../../includes/header.php';
             <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
         <?php endif; ?>
 
+        <?php if ($canCreateSection): ?>
         <div class="app-card">
             <h5 class="mb-1">Add Section</h5>
             <div class="text-muted small mb-3">Examples: Neck Pain, Back Pain, Knee Pain, Shoulder Pain.</div>
@@ -63,6 +76,7 @@ include '../../includes/header.php';
                 </div>
             </form>
         </div>
+        <?php endif; ?>
 
         <div class="app-card">
             <h5 class="mb-3">Assessment Sections</h5>
@@ -93,21 +107,33 @@ include '../../includes/header.php';
                                 </td>
                                 <td class="text-end">
                                     <div class="d-flex flex-wrap justify-content-end gap-2">
+                                        <?php if ($canManageQuestions): ?>
                                         <a class="btn btn-sm btn-primary" href="assessment_questions.php?section_id=<?= (int) $section['id'] ?>">Manage Questions</a>
+                                        <?php endif; ?>
+                                        <?php if ($canEditSection): ?>
                                         <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#editSection<?= (int) $section['id'] ?>">Edit</button>
+                                        <?php endif; ?>
+                                        <?php if ($canChangeSectionStatus): ?>
                                         <form method="post">
                                             <input type="hidden" name="action" value="toggle_section">
                                             <input type="hidden" name="id" value="<?= (int) $section['id'] ?>">
                                             <button class="btn btn-sm btn-outline-secondary"><?= !empty($section['is_active']) ? 'Deactivate' : 'Activate' ?></button>
                                         </form>
+                                        <?php endif; ?>
+                                        <?php if ($canDeleteSection): ?>
                                         <form method="post" onsubmit="return confirm('Delete this assessment section? Related questions will also be deleted.');">
                                             <input type="hidden" name="action" value="delete_section">
                                             <input type="hidden" name="id" value="<?= (int) $section['id'] ?>">
                                             <button class="btn btn-sm btn-outline-danger">Delete</button>
                                         </form>
+                                        <?php endif; ?>
+                                        <?php if (!$canManageQuestions && !$canEditSection && !$canChangeSectionStatus && !$canDeleteSection): ?>
+                                            <span class="text-muted">No actions available</span>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
+                            <?php if ($canEditSection): ?>
                             <tr class="collapse" id="editSection<?= (int) $section['id'] ?>">
                                 <td colspan="4">
                                     <form method="post" class="row g-3 align-items-end bg-light border rounded p-3">
@@ -131,6 +157,7 @@ include '../../includes/header.php';
                                     </form>
                                 </td>
                             </tr>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                         <?php if (empty($sections)): ?>
                             <tr>

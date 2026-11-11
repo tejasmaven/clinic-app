@@ -4,6 +4,10 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('payment_template.view');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requirePermission('payment_template.update');
+}
 
 require_once '../../controllers/PaymentSlipTemplateController.php';
 

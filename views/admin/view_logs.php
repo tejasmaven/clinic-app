@@ -50,6 +50,52 @@ $logsStmt = $pdo->prepare(
 $logsStmt->execute($params);
 $logs = $logsStmt->fetchAll(PDO::FETCH_ASSOC);
 
+$permissionLogStmt = $pdo->query(
+    "SELECT pcl.*, u.name AS actor_name, u.email AS actor_email, u.role AS actor_role
+     FROM permission_change_log pcl
+     LEFT JOIN users u ON u.id = pcl.changed_by
+     ORDER BY pcl.created_at DESC, pcl.id DESC
+     LIMIT 50"
+);
+$permissionLogs = $permissionLogStmt->fetchAll(PDO::FETCH_ASSOC);
+
+function permissionConfigurationKeys(array $configuration, string $key): array {
+    $values = $configuration[$key] ?? [];
+    return is_array($values) ? array_keys($values) : [];
+}
+
+function permissionChangeDetails(array $log): array {
+    $previous = json_decode((string) ($log['previous_configuration'] ?? ''), true);
+    $current = json_decode((string) ($log['new_configuration'] ?? ''), true);
+    $previous = is_array($previous) ? $previous : [];
+    $current = is_array($current) ? $current : [];
+
+    $previousModules = permissionConfigurationKeys($previous, 'enabled_modules');
+    $currentModules = permissionConfigurationKeys($current, 'enabled_modules');
+    $previousPermissions = permissionConfigurationKeys($previous, 'allowed_permissions');
+    $currentPermissions = permissionConfigurationKeys($current, 'allowed_permissions');
+
+    return [
+        'modules_enabled' => array_values(array_diff($currentModules, $previousModules)),
+        'modules_disabled' => array_values(array_diff($previousModules, $currentModules)),
+        'permissions_granted' => array_values(array_diff($currentPermissions, $previousPermissions)),
+        'permissions_revoked' => array_values(array_diff($previousPermissions, $currentPermissions)),
+    ];
+}
+
+function formatPermissionChangeItems(array $items): string {
+    if (empty($items)) {
+        return '';
+    }
+
+    return implode(', ', array_map(
+        static function ($item) {
+            return ucwords(str_replace(['.', '_'], [' / ', ' '], (string) $item));
+        },
+        $items
+    ));
+}
+
 $queryBase = [
     'search' => $search,
     'log_type' => $logType,
@@ -66,6 +112,69 @@ include '../../includes/header.php';
             <div>
                 <h1 class="admin-page-title">View Logs</h1>
                 <p class="admin-page-subtitle">Review user activity and application errors across the clinic portal.</p>
+            </div>
+        </div>
+
+        <div class="app-card">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Permission Changes</h2>
+                    <p class="text-muted mb-0">Latest role module and permission updates made by Super Admin.</p>
+                </div>
+                <span class="badge text-bg-secondary"><?= count($permissionLogs) ?> latest changes</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Changed By</th>
+                            <th scope="col">Target Role</th>
+                            <th scope="col">Update Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($permissionLogs)): ?>
+                            <?php foreach ($permissionLogs as $permissionLog): ?>
+                                <?php $changes = permissionChangeDetails($permissionLog); ?>
+                                <tr>
+                                    <td class="text-nowrap"><?= htmlspecialchars(format_display_date($permissionLog['created_at'], 'd-M-Y H:i:s')) ?></td>
+                                    <td>
+                                        <div class="fw-semibold"><?= htmlspecialchars($permissionLog['actor_name'] ?: 'System / Unknown') ?></div>
+                                        <div class="small text-muted">
+                                            <?= htmlspecialchars($permissionLog['actor_role'] ?: '-') ?>
+                                            <?php if (!empty($permissionLog['actor_email'])): ?>
+                                                &middot; <?= htmlspecialchars($permissionLog['actor_email']) ?>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge text-bg-primary"><?= htmlspecialchars($permissionLog['role_name']) ?></span></td>
+                                    <td style="min-width: 360px;">
+                                        <?php if (!empty($changes['modules_enabled'])): ?>
+                                            <div><strong class="text-success">Modules enabled:</strong> <?= htmlspecialchars(formatPermissionChangeItems($changes['modules_enabled'])) ?></div>
+                                        <?php endif; ?>
+                                        <?php if (!empty($changes['modules_disabled'])): ?>
+                                            <div><strong class="text-danger">Modules disabled:</strong> <?= htmlspecialchars(formatPermissionChangeItems($changes['modules_disabled'])) ?></div>
+                                        <?php endif; ?>
+                                        <?php if (!empty($changes['permissions_granted'])): ?>
+                                            <div><strong class="text-success">Permissions granted:</strong> <?= htmlspecialchars(formatPermissionChangeItems($changes['permissions_granted'])) ?></div>
+                                        <?php endif; ?>
+                                        <?php if (!empty($changes['permissions_revoked'])): ?>
+                                            <div><strong class="text-danger">Permissions revoked:</strong> <?= htmlspecialchars(formatPermissionChangeItems($changes['permissions_revoked'])) ?></div>
+                                        <?php endif; ?>
+                                        <?php if (empty(array_filter($changes))): ?>
+                                            <span class="text-muted">Configuration saved with no effective permission changes.</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">No permission changes have been recorded yet.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
 

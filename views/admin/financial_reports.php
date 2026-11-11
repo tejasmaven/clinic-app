@@ -3,6 +3,10 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('financial_reports.view');
+if (isset($_GET['export']) && $_GET['export'] === '1') {
+    requirePermission('financial_reports.export');
+}
 
 require_once '../../controllers/FinancialReportController.php';
 
@@ -106,7 +110,9 @@ include '../../includes/header.php';
                 <h1 class="admin-page-title">Financial Reports</h1>
                 <p class="admin-page-subtitle">Showing transactions from <?= htmlspecialchars($displayStart) ?> to <?= htmlspecialchars($displayEnd) ?></p>
             </div>
-            <a class="btn btn-outline-secondary" href="?<?= htmlspecialchars($downloadQuery) ?>">Download Excel</a>
+            <?php if (hasPermission('financial_reports.export')): ?>
+                <a class="btn btn-outline-secondary" href="?<?= htmlspecialchars($downloadQuery) ?>">Download Excel</a>
+            <?php endif; ?>
         </div>
 
         <div class="app-card">

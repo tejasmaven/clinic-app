@@ -3,6 +3,14 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('users.view');
+requireActionPermission([
+    'add_user' => 'users.create',
+    'edit_user' => 'users.edit',
+    'toggle_user_status' => 'users.status',
+    'delete_user' => 'users.delete',
+    'restore_user' => 'users.restore',
+]);
 
 require_once '../../controllers/AdminController.php';
 $admin = new AdminController($pdo);

@@ -3,6 +3,13 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 requireLogin();
+requirePermission('assessment_setup.questions');
+requireActionPermission([
+    'add_item' => 'assessment_setup.questions',
+    'edit_item' => 'assessment_setup.questions',
+    'toggle_item' => 'assessment_setup.status',
+    'delete_item' => 'assessment_setup.delete',
+]);
 
 if (!in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin', 'Doctor'], true)) {
     header('Location: ../login.php');
@@ -31,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $items = $controller->getItemsBySection($sectionId);
 $inputTypes = $controller->getInputTypes();
 $isAdmin = in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin'], true);
+$canManageQuestions = hasPermission('assessment_setup.questions');
+$canChangeItemStatus = hasPermission('assessment_setup.status');
+$canDeleteItem = hasPermission('assessment_setup.delete');
 
 include '../../includes/header.php';
 ?>
@@ -50,6 +60,7 @@ include '../../includes/header.php';
             <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
         <?php endif; ?>
 
+        <?php if ($canManageQuestions): ?>
         <div class="app-card">
             <h5 class="mb-3">Add Question / Examination Input</h5>
             <form method="post" class="row g-3">
@@ -90,6 +101,7 @@ include '../../includes/header.php';
                 </div>
             </form>
         </div>
+        <?php endif; ?>
 
         <div class="app-card">
             <h5 class="mb-3">Current Questions / Exam Inputs</h5>
@@ -119,22 +131,32 @@ include '../../includes/header.php';
                                 </td>
                                 <td class="text-end">
                                     <div class="d-flex flex-wrap justify-content-end gap-2">
+                                        <?php if ($canManageQuestions): ?>
                                         <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#editItem<?= (int) $item['id'] ?>">Edit</button>
+                                        <?php endif; ?>
+                                        <?php if ($canChangeItemStatus): ?>
                                         <form method="post">
                                             <input type="hidden" name="action" value="toggle_item">
                                             <input type="hidden" name="section_id" value="<?= (int) $sectionId ?>">
                                             <input type="hidden" name="id" value="<?= (int) $item['id'] ?>">
                                             <button class="btn btn-sm btn-outline-secondary"><?= !empty($item['is_active']) ? 'Deactivate' : 'Activate' ?></button>
                                         </form>
+                                        <?php endif; ?>
+                                        <?php if ($canDeleteItem): ?>
                                         <form method="post" onsubmit="return confirm('Delete this question or examination input? Existing patient answers for this item will also be removed.');">
                                             <input type="hidden" name="action" value="delete_item">
                                             <input type="hidden" name="section_id" value="<?= (int) $sectionId ?>">
                                             <input type="hidden" name="id" value="<?= (int) $item['id'] ?>">
                                             <button class="btn btn-sm btn-outline-danger">Delete</button>
                                         </form>
+                                        <?php endif; ?>
+                                        <?php if (!$canManageQuestions && !$canChangeItemStatus && !$canDeleteItem): ?>
+                                            <span class="text-muted">No actions available</span>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
+                            <?php if ($canManageQuestions): ?>
                             <tr class="collapse" id="editItem<?= (int) $item['id'] ?>">
                                 <td colspan="6">
                                     <form method="post" class="bg-light border rounded p-3 row g-3 assessment-item-form">
@@ -176,6 +198,7 @@ include '../../includes/header.php';
                                     </form>
                                 </td>
                             </tr>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                         <?php if (empty($items)): ?>
                             <tr>

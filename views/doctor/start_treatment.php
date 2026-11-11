@@ -3,6 +3,26 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole(['Doctor', 'Admin']);
+requirePermission('sessions.view');
+if (!empty($_GET['edit_session_id'])) {
+    requirePermission('sessions.edit');
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $requestedSessionAction = $_POST['action'] ?? 'save_session';
+    if ($requestedSessionAction === 'delete_session') {
+        requirePermission('sessions.delete');
+    } elseif ($requestedSessionAction === 'update_session') {
+        requirePermission('sessions.edit');
+    } else {
+        requirePermission('sessions.create');
+    }
+    if (!empty($_POST['copy_session_date'])) {
+        requirePermission('sessions.copy');
+    }
+    if (!empty($_FILES['session_file']['name'])) {
+        requirePermission('sessions.files');
+    }
+}
 
 require_once '../../controllers/TreatmentController.php';
 require_once '../../controllers/PatientController.php';
@@ -14,7 +34,7 @@ $patientController = new PatientController($pdo);
 $paymentController = new PaymentController($pdo);
 $exerciseGroupController = new ExerciseGroupController($pdo);
 
-$isAdmin = ($_SESSION['role'] ?? '') === 'Admin';
+$isAdmin = in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin'], true);
 $layoutClass = $isAdmin ? 'admin-layout' : 'workspace-layout';
 $contentClass = $isAdmin ? 'admin-content' : 'workspace-content';
 $headerClass = $isAdmin ? 'admin-page-header' : 'workspace-page-header';
@@ -165,7 +185,10 @@ foreach ($sessionsByYear as &$yearData) {
 }
 unset($yearData);
 
-$editSessionId = isset($_GET['edit_session_id']) ? (int) $_GET['edit_session_id'] : 0;
+$newSessionRequested = ($_GET['new_session'] ?? '') === '1';
+$editSessionId = !$newSessionRequested && isset($_GET['edit_session_id'])
+    ? (int) $_GET['edit_session_id']
+    : 0;
 $msg = null;
 
 if (isset($_GET['status'])) {
@@ -186,9 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'delete_session') {
         $sessionId = isset($_POST['session_id']) ? (int) $_POST['session_id'] : 0;
 
-        if (!$isAdmin) {
-            $msg = 'Only admin users can delete treatment sessions.';
-        } elseif ($sessionId <= 0) {
+        if ($sessionId <= 0) {
             $msg = 'Invalid session selected for deletion.';
         } else {
             $sessionDetails = $treatmentController->getSessionById($sessionId);
@@ -327,7 +348,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             }
 
                             if ($msg === null) {
-                                header('Location: start_treatment.php?episode_id=' . $episode_id . '&patient_id=' . $patient_id . '&status=session_updated');
+                                header(
+                                    'Location: start_treatment.php?episode_id=' . $episode_id
+                                    . '&patient_id=' . $patient_id
+                                    . '&status=session_updated&new_session=1#session-form'
+                                );
                                 exit;
                             }
                         } else {
@@ -592,7 +617,7 @@ include '../../includes/header.php';
       </div>
       <div class="d-flex gap-2">
         <?php if ($isEditingSession): ?>
-          <a href="start_treatment.php?episode_id=<?= $episode_id ?>&patient_id=<?= $patient_id ?>" class="btn btn-outline-primary">Cancel Editing</a>
+          <a href="start_treatment.php?episode_id=<?= $episode_id ?>&patient_id=<?= $patient_id ?>&new_session=1#session-form" class="btn btn-outline-primary">Add New Session</a>
         <?php endif; ?>
         <a href="select_or_create_episode.php?patient_id=<?= $patient_id ?>" class="btn btn-outline-secondary">Back to Episodes</a>
       </div>
@@ -769,13 +794,13 @@ include '../../includes/header.php';
       </div>
     <?php endif; ?>
 
-    <div class="app-card">
+    <div class="app-card" id="session-form">
       <?php if ($isEditingSession && $editingSessionData): ?>
         <div class="alert alert-warning mb-3">
           Editing session dated <?= htmlspecialchars(format_display_date($editingSessionData['session_date'])) ?>.
         </div>
       <?php endif; ?>
-      <form method="POST" enctype="multipart/form-data" class="d-flex flex-column gap-3">
+      <form method="POST" action="start_treatment.php?episode_id=<?= $episode_id ?>&patient_id=<?= $patient_id ?>#session-form" enctype="multipart/form-data" class="d-flex flex-column gap-3">
         <input type="hidden" name="action" value="<?= $isEditingSession ? 'update_session' : 'save_session' ?>">
         <?php if ($isEditingSession && isset($editingSessionData['id'])): ?>
           <input type="hidden" name="session_id" value="<?= (int) $editingSessionData['id'] ?>">

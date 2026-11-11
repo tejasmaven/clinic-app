@@ -3,6 +3,7 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Doctor');
+requirePermission('patients.view');
 
 require_once '../../controllers/PatientController.php';
 $controller = new PatientController($pdo);

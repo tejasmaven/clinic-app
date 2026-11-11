@@ -3,6 +3,13 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('exercises.view');
+requireActionPermission([
+    'add_exercise' => 'exercises.create',
+    'edit_exercise' => 'exercises.edit',
+    'toggle_exercise' => 'exercises.status',
+    'delete_exercise' => 'exercises.delete',
+]);
 
 require_once '../../controllers/AdminController.php';
 $admin = new AdminController($pdo);

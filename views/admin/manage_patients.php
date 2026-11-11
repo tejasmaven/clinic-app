@@ -3,6 +3,8 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('patients.view');
+requireActionPermission(['delete_patient' => 'patients.delete']);
 
 require_once '../../controllers/PatientController.php';
 $controller = new PatientController($pdo);

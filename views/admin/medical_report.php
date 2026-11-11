@@ -4,6 +4,10 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('medical_reports.view');
+if (($_GET['generate'] ?? '') === '1') {
+    requirePermission('medical_reports.generate');
+}
 
 require_once '../../controllers/MedicalReportController.php';
 
@@ -208,7 +212,9 @@ include '../../includes/header.php';
                             <?= htmlspecialchars($displayStart) ?> to <?= htmlspecialchars($displayEnd) ?>
                         </p>
                     </div>
-                    <button type="button" class="btn btn-outline-primary align-self-md-start" onclick="window.print()" <?= empty($reportRows) ? 'disabled' : '' ?>>Print</button>
+                    <?php if (hasPermission('medical_reports.print')): ?>
+                        <button type="button" class="btn btn-outline-primary align-self-md-start" onclick="window.print()" <?= empty($reportRows) ? 'disabled' : '' ?>>Print</button>
+                    <?php endif; ?>
                 </div>
 
                 <div class="mb-3">
@@ -315,7 +321,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<?php if ($reportGenerated && empty($errors) && !empty($reportRows)): ?>
+<?php if ($reportGenerated && empty($errors) && !empty($reportRows) && hasPermission('medical_reports.print')): ?>
     <section class="medical-report-print print-only" aria-label="Printable medical report">
         <div class="text-center mb-4 medical-report-print-logo-wrap">
             <img src="<?= htmlspecialchars($logoUrl) ?>" alt="Clinic Logo" class="medical-report-logo">

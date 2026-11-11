@@ -10,6 +10,7 @@ $receptionistNavItems = [
         'label' => 'Dashboard',
         'href' => BASE_URL . '/views/dashboard/receptionist_dashboard.php',
         'matches' => ['receptionist_dashboard.php'],
+        'permission' => 'dashboard.reception.view',
     ],
     [
         'label' => 'Manage Patients',
@@ -20,6 +21,7 @@ $receptionistNavItems = [
             'manage_payments.php',
             'manage_patients_files.php',
         ],
+        'permission' => 'patients.view',
     ],
     [
         'label' => 'Logout',
@@ -32,6 +34,9 @@ if (!function_exists('renderWorkspaceNavLinks')) {
     function renderWorkspaceNavLinks(array $items, string $currentScript): void
     {
         foreach ($items as $item) {
+            if (!empty($item['permission']) && !hasPermission($item['permission'])) {
+                continue;
+            }
             $matches = $item['matches'] ?? [];
             $isActive = in_array($currentScript, $matches, true);
 

@@ -3,6 +3,13 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Doctor');
+requirePermission('exercise_groups.view');
+requireActionPermission([
+    'add_group' => 'exercise_groups.create',
+    'edit_group' => 'exercise_groups.edit',
+    'toggle_group' => 'exercise_groups.status',
+    'delete_group' => 'exercise_groups.delete',
+]);
 
 require_once '../../controllers/ExerciseGroupController.php';
 $groupController = new ExerciseGroupController($pdo);

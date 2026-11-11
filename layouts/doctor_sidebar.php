@@ -10,6 +10,7 @@ $doctorNavItems = [
         'label' => 'Dashboard',
         'href' => BASE_URL . '/views/dashboard/doctor_dashboard.php',
         'matches' => ['doctor_dashboard.php'],
+        'permission' => 'dashboard.doctor.view',
     ],
     [
         'label' => 'Manage Patients',
@@ -20,31 +21,37 @@ $doctorNavItems = [
             'select_or_create_episode.php',
             'start_treatment.php',
         ],
+        'permission' => 'patients.view',
     ],
     [
         'label' => 'Active Episodes',
         'href' => BASE_URL . '/views/doctor/active_patients.php',
         'matches' => ['active_patients.php'],
+        'permission' => 'episodes.view',
     ],
     [
         'label' => 'Exercises Library',
         'href' => BASE_URL . '/views/doctor/exercises_list.php',
         'matches' => ['exercises_list.php'],
+        'permission' => 'exercises.view',
     ],
     [
         'label' => 'Machine Library',
         'href' => BASE_URL . '/views/doctor/machines_list.php',
         'matches' => ['machines_list.php'],
+        'permission' => 'machines.view',
     ],
     [
         'label' => 'Exercise Groups',
         'href' => BASE_URL . '/views/doctor/manage_exercise_groups.php',
         'matches' => ['manage_exercise_groups.php'],
+        'permission' => 'exercise_groups.view',
     ],
     [
         'label' => 'Assessment Setup',
         'href' => BASE_URL . '/views/shared/assessment_setup.php',
         'matches' => ['assessment_setup.php', 'assessment_questions.php'],
+        'permission' => 'assessment_setup.view',
     ],
     [
         'label' => 'Logout',
@@ -57,6 +64,9 @@ if (!function_exists('renderWorkspaceNavLinks')) {
     function renderWorkspaceNavLinks(array $items, string $currentScript): void
     {
         foreach ($items as $item) {
+            if (!empty($item['permission']) && !hasPermission($item['permission'])) {
+                continue;
+            }
             $matches = $item['matches'] ?? [];
             $isActive = in_array($currentScript, $matches, true);
 

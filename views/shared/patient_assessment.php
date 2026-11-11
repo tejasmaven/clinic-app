@@ -3,6 +3,10 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 requireLogin();
+requirePermission('patient_assessment.view');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requirePermission('patient_assessment.save');
+}
 
 if (!in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin', 'Doctor', 'Receptionist'], true)) {
     header('Location: ../login.php');

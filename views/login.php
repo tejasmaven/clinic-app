@@ -1,5 +1,6 @@
 <?php
 require_once '../includes/db.php';
+require_once '../includes/auth.php';
 require_once '../controllers/AuthController.php';
 
 $auth = new AuthController($pdo);
@@ -8,21 +9,10 @@ $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'];
     $password = $_POST['password'];
-    $msg = $auth->login($email, $password);
+    $msg = $auth->login($email, $password, ['Doctor', 'Receptionist', 'Admin', 'Super Admin']);
     if (strpos($msg, 'Success') !== false) {
-        
-        $role = $_SESSION['role'];
-       
-        if ($role === 'Doctor') {
-            
-            header('Location: ./dashboard/doctor_dashboard.php'); 
-            exit;
-        } elseif ($role === 'Receptionist') {
-            header('Location: ./dashboard/receptionist_dashboard'); 
-            exit;
-        } else {
-            $msg = "Unauthorized role.";
-        }
+        header('Location: ' . getRoleLandingUrl($_SESSION['role'] ?? ''));
+        exit;
     }
 }
 
@@ -30,7 +20,7 @@ include '../includes/header.php';
 ?>
 
 <div class="container mt-5" style="max-width:500px;">
-  <h4><?= htmlspecialchars(get_site_name()) ?> Doctor / Receptionist Login</h4>
+  <h4><?= htmlspecialchars(get_site_name()) ?> Staff Login</h4>
   <?php if (!empty($msg)): ?>
     <div class="alert alert-info"><?= htmlspecialchars($msg) ?></div>
   <?php endif; ?>

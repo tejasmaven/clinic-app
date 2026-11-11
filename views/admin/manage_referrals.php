@@ -3,6 +3,12 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('referrals.view');
+requireActionPermission([
+    'add_referral' => 'referrals.create',
+    'edit_referral' => 'referrals.edit',
+    'delete_referral' => 'referrals.delete',
+]);
 
 require_once '../../controllers/AdminController.php';
 $admin = new AdminController($pdo);

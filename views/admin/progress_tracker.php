@@ -3,6 +3,7 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('progress_tracker.view');
 
 require_once '../../controllers/ProgressTrackerController.php';
 

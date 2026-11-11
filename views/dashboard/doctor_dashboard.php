@@ -4,6 +4,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/db.php';
 requireLogin();
 requireRole('Doctor');
+requirePermission('dashboard.doctor.view');
 
 $doctorId = (int) ($_SESSION['user_id'] ?? 0);
 $doctorName = trim((string) ($_SESSION['name'] ?? ''));

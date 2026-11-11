@@ -3,11 +3,16 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole(['Doctor', 'Admin']);
+requirePermission('episodes.view');
+requireActionPermission([
+    'create_episode' => 'episodes.create',
+    'update_episode' => 'episodes.edit',
+]);
 
 require_once '../../controllers/TreatmentController.php';
 $treatmentController = new TreatmentController($pdo);
 
-$isAdmin = ($_SESSION['role'] ?? '') === 'Admin';
+$isAdmin = in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin'], true);
 $patientsUrl = $isAdmin ? '../admin/manage_patients.php' : 'manage_patients.php';
 $layoutClass = $isAdmin ? 'admin-layout' : 'workspace-layout';
 $contentClass = $isAdmin ? 'admin-content' : 'workspace-content';

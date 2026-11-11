@@ -426,9 +426,13 @@ class PatientController {
     }
 
     private function tableExists(string $tableName): bool {
-        $stmt = $this->pdo->prepare("SHOW TABLES LIKE ?");
+        $stmt = $this->pdo->prepare(
+            "SELECT COUNT(*)
+             FROM information_schema.tables
+             WHERE table_schema = DATABASE() AND table_name = ?"
+        );
         $stmt->execute([$tableName]);
 
-        return (bool) $stmt->fetchColumn();
+        return (int) $stmt->fetchColumn() > 0;
     }
 }

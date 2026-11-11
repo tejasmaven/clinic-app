@@ -47,7 +47,12 @@ class AuthController {
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password_hash'])) {
-            if ($expectedRole && $user['role'] !== $expectedRole) {
+            $expectedRoles = $expectedRole ? (array) $expectedRole : [];
+            if (in_array('Admin', $expectedRoles, true) && !in_array('Super Admin', $expectedRoles, true)) {
+                $expectedRoles[] = 'Super Admin';
+            }
+
+            if ($expectedRoles && !in_array($user['role'], $expectedRoles, true)) {
                 return "Access denied for this role.";
             }
 

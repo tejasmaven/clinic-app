@@ -3,6 +3,8 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Doctor');
+$patientFormPermission = !empty($_GET['id']) ? 'patients.edit' : 'patients.create';
+requirePermission($patientFormPermission);
 
 require_once '../../controllers/PatientController.php';
 require_once '../../controllers/AssessmentController.php';
@@ -22,6 +24,9 @@ if ($id) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!empty($_FILES['reports']['name'][0])) {
+        requirePermission('patient_files.upload');
+    }
     $data = $_POST;
     $data['id'] = $id ?? null;
     $msg = $controller->saveOrUpdatePatient($data);

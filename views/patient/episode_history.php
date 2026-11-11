@@ -5,6 +5,7 @@ require_once '../../includes/db.php';
 require_once '../../controllers/TreatmentController.php';
 
 requireRole('Patient', 'login.php');
+requirePermission('patient_portal.history');
 
 $patientId = (int) ($_SESSION['patient_id'] ?? $_SESSION['user_id'] ?? 0);
 $episodeIdFilter = (int) ($_GET['episode_id'] ?? 0);

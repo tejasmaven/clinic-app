@@ -4,6 +4,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/db.php';
 requireLogin();
 requireRole('Receptionist');
+requirePermission('dashboard.reception.view');
 
 $totalPatients = $pdo->query("SELECT COUNT(*) FROM patients")->fetchColumn();
 

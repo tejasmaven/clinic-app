@@ -1,4 +1,8 @@
 <?php
+require_once '../../includes/db.php';
+require_once '../../includes/auth.php';
+requireLogin();
+requirePermission('patient_files.download');
 
 $patientId = isset($_GET['patient_id']) ? preg_replace('/[^0-9]/', '', $_GET['patient_id']) : '';
 $fileName  = isset($_GET['file']) ? basename($_GET['file']) : '';

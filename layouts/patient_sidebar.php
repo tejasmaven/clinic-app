@@ -11,21 +11,25 @@ $patientNavItems = [
         'label' => 'Dashboard',
         'href' => BASE_URL . '/views/patient/dashboard.php',
         'matches' => ['dashboard.php'],
+        'permission' => 'patient_portal.dashboard',
     ],
     [
         'label' => 'My History',
         'href' => BASE_URL . '/views/patient/history.php',
         'matches' => ['history.php'],
+        'permission' => 'patient_portal.history',
     ],
     [
         'label' => 'My Payments',
         'href' => BASE_URL . '/views/patient/payments.php',
         'matches' => ['payments.php'],
+        'permission' => 'patient_portal.payments',
     ],
     [
         'label' => 'Change Password',
         'href' => BASE_URL . '/views/patient/change_password.php',
         'matches' => ['change_password.php'],
+        'permission' => 'patient_portal.password',
     ],
     [
         'label' => 'Logout',
@@ -38,6 +42,9 @@ if (!function_exists('renderWorkspaceNavLinks')) {
     function renderWorkspaceNavLinks(array $items, string $currentScript): void
     {
         foreach ($items as $item) {
+            if (!empty($item['permission']) && !hasPermission($item['permission'])) {
+                continue;
+            }
             $matches = $item['matches'] ?? [];
             $isActive = in_array($currentScript, $matches, true);
 

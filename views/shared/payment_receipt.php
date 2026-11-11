@@ -3,6 +3,7 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 requireLogin();
+requirePermission('payments.receipt');
 
 if (!in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin', 'Receptionist'], true)) {
     header('Location: ../login.php');

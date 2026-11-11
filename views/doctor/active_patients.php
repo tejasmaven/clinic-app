@@ -3,6 +3,7 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Doctor');
+requirePermission('episodes.view');
 
 // Fetch active patients
 $sql = "SELECT DISTINCT p.* FROM patients p

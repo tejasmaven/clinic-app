@@ -6,6 +6,7 @@ require_once '../../controllers/PatientController.php';
 require_once '../../controllers/PaymentController.php';
 require_once '../../controllers/TreatmentController.php';
 requireRole('Patient', 'login.php');
+requirePermission('patient_portal.payments');
 
 $patientId = (int) ($_SESSION['patient_id'] ?? $_SESSION['user_id'] ?? 0);
 

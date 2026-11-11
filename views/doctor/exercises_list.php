@@ -3,6 +3,7 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Doctor');
+requirePermission('exercises.view');
 
 $exercises = $pdo->query("SELECT name, default_reps, default_duration_minutes FROM exercises_master ORDER BY name" )->fetchAll(PDO::FETCH_ASSOC);
 

@@ -3,6 +3,7 @@ require_once '../config/db.php';
 require_once 'TreatmentController.php';
 require_once '../includes/auth.php';
 requireRole('Doctor');
+requirePermission('sessions.create');
 
 $treatmentController = new TreatmentController($pdo);
 

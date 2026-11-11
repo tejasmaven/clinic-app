@@ -10,11 +10,13 @@ $adminNavItems = [
         'label' => 'Dashboard',
         'href' => BASE_URL . '/views/admin/index.php',
         'matches' => ['index.php'],
+        'permission' => 'dashboard.admin.view',
     ],
     [
         'label' => 'Manage Users',
         'href' => BASE_URL . '/views/admin/manage_users.php',
         'matches' => ['manage_users.php'],
+        'permission' => 'users.view',
     ],
     [
         'label' => 'Manage Patients',
@@ -25,61 +27,78 @@ $adminNavItems = [
             'select_or_create_episode.php',
             'start_treatment.php',
         ],
+        'permission' => 'patients.view',
     ],
     [
         'label' => 'Exercises',
         'href' => BASE_URL . '/views/admin/manage_exercises.php',
         'matches' => ['manage_exercises.php'],
+        'permission' => 'exercises.view',
     ],
     [
         'label' => 'Machines',
         'href' => BASE_URL . '/views/admin/manage_machines.php',
         'matches' => ['manage_machines.php'],
+        'permission' => 'machines.view',
     ],
     [
         'label' => 'Exercise Groups',
         'href' => BASE_URL . '/views/admin/manage_exercise_groups.php',
         'matches' => ['manage_exercise_groups.php'],
+        'permission' => 'exercise_groups.view',
     ],
     [
         'label' => 'Assessment Setup',
         'href' => BASE_URL . '/views/shared/assessment_setup.php',
         'matches' => ['assessment_setup.php', 'assessment_questions.php'],
+        'permission' => 'assessment_setup.view',
     ],
     [
         'label' => 'Patient Report File Types',
         'href' => BASE_URL . '/views/admin/manage_patient_report_file_types.php',
         'matches' => ['manage_patient_report_file_types.php'],
+        'permission' => 'report_file_types.view',
     ],
     [
         'label' => 'Referral Sources',
         'href' => BASE_URL . '/views/admin/manage_referrals.php',
         'matches' => ['manage_referrals.php'],
+        'permission' => 'referrals.view',
     ],
     [
         'label' => 'Financial Reports',
         'href' => BASE_URL . '/views/admin/financial_reports.php',
         'matches' => ['financial_reports.php'],
+        'permission' => 'financial_reports.view',
     ],
     [
         'label' => 'Progress Tracker',
         'href' => BASE_URL . '/views/admin/progress_tracker.php',
         'matches' => ['progress_tracker.php'],
+        'permission' => 'progress_tracker.view',
     ],
     [
         'label' => 'Payment Slip Template',
         'href' => BASE_URL . '/views/admin/payment_slip_template.php',
         'matches' => ['payment_slip_template.php'],
+        'permission' => 'payment_template.view',
     ],
     [
         'label' => 'Medical Report',
         'href' => BASE_URL . '/views/admin/medical_report.php',
         'matches' => ['medical_report.php'],
+        'permission' => 'medical_reports.view',
     ],
     [
         'label' => 'Configuration',
         'href' => BASE_URL . '/views/admin/configuration.php',
         'matches' => ['configuration.php'],
+        'super_admin_only' => true,
+    ],
+    [
+        'label' => 'Modules & Permissions',
+        'href' => BASE_URL . '/views/admin/modules_permissions.php',
+        'matches' => ['modules_permissions.php'],
         'super_admin_only' => true,
     ],
     [
@@ -100,6 +119,9 @@ if (!function_exists('renderAdminNavLinks')) {
     {
         foreach ($items as $item) {
             if (!empty($item['super_admin_only']) && ($_SESSION['role'] ?? '') !== 'Super Admin') {
+                continue;
+            }
+            if (!empty($item['permission']) && !hasPermission($item['permission'])) {
                 continue;
             }
 

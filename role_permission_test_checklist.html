@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clinic Role & Permission Test Checklist</title>
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#667085; --line:#d9dee8; --soft:#f5f7fa; --navy:#20385f; --teal:#087f72; --red:#b42318; --amber:#b54708; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#eef1f5; color:var(--ink); font:14px/1.45 Arial, sans-serif; }
+    button, select, input, textarea { font:inherit; }
+    .topbar { background:var(--navy); color:white; padding:20px 24px; }
+    .topbar h1 { font-size:24px; margin:0 0 4px; letter-spacing:0; }
+    .topbar p { margin:0; color:#dbe5f5; }
+    main { max-width:1500px; margin:0 auto; padding:20px; }
+    .panel { background:white; border:1px solid var(--line); border-radius:6px; margin-bottom:16px; padding:16px; }
+    .setup-grid, .summary-grid, .toolbar { display:grid; gap:12px; }
+    .setup-grid { grid-template-columns:repeat(5,minmax(150px,1fr)); }
+    .summary-grid { grid-template-columns:repeat(4,minmax(140px,1fr)); }
+    .toolbar { align-items:end; grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) auto auto; }
+    label { color:#344054; display:block; font-size:12px; font-weight:700; margin-bottom:5px; }
+    input[type=text], input[type=date], select, textarea { border:1px solid #b9c1ce; border-radius:4px; padding:9px 10px; width:100%; }
+    textarea { min-height:62px; resize:vertical; }
+    .metric { border-left:4px solid var(--navy); background:var(--soft); padding:12px; }
+    .metric strong { display:block; font-size:24px; }
+    .metric span { color:var(--muted); }
+    .progress { background:#dfe4ec; height:9px; margin-top:12px; overflow:hidden; }
+    .progress span { background:var(--teal); display:block; height:100%; transition:width .2s; }
+    .btn { border:1px solid transparent; border-radius:4px; cursor:pointer; font-weight:700; padding:9px 13px; }
+    .btn-primary { background:var(--navy); color:white; }
+    .btn-light { background:white; border-color:#aeb7c5; color:var(--ink); }
+    .btn-danger { background:white; border-color:#d92d20; color:#b42318; }
+    .table-wrap { background:white; border:1px solid var(--line); overflow:auto; }
+    table { border-collapse:collapse; min-width:1220px; width:100%; }
+    th { background:#e9edf3; color:#344054; font-size:12px; position:sticky; text-align:left; top:0; z-index:1; }
+    th, td { border-bottom:1px solid var(--line); padding:10px; vertical-align:top; }
+    tbody tr:hover { background:#fafbfc; }
+    .role-row td { background:#dce6f5; color:#20385f; font-size:15px; font-weight:700; padding:10px 12px; }
+    .test-id { color:var(--muted); font-weight:700; white-space:nowrap; }
+    .module { font-weight:700; }
+    .expected { border-left:3px solid var(--teal); padding-left:9px; }
+    .expected.denied { border-left-color:var(--red); }
+    .result { min-width:154px; white-space:nowrap; }
+    .result label { cursor:pointer; display:inline-flex; font-size:13px; font-weight:600; gap:4px; margin:0 10px 4px 0; }
+    .notes { min-width:190px; }
+    .notes textarea { min-height:48px; }
+    .tag { border:1px solid #9aa5b5; border-radius:3px; display:inline-block; font-size:11px; font-weight:700; padding:2px 6px; }
+    .tag-denied { border-color:#f3a7a1; color:var(--red); }
+    .tag-allowed { border-color:#7ec9be; color:#067266; }
+    .empty { color:var(--muted); padding:30px; text-align:center; }
+    .small { color:var(--muted); font-size:12px; }
+    @media (max-width:900px) { .setup-grid,.summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .toolbar { grid-template-columns:1fr 1fr; } }
+    @media print { body { background:white; font-size:10px; } .topbar { background:white; color:black; padding:0 0 12px; } .topbar p,.toolbar,.progress { display:none; } main { max-width:none; padding:0; } .panel { border:0; padding:8px 0; } .setup-grid,.summary-grid { grid-template-columns:repeat(5,1fr); } .metric { padding:6px; } .metric strong { font-size:16px; } .table-wrap { border:0; overflow:visible; } table { min-width:0; } th { position:static; } th,td { padding:5px; } textarea { border:0; min-height:28px; padding:0; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Clinic Role & Permission Test Checklist</h1>
+    <p>Manual acceptance testing for database-backed modules, menus, page access and actions.</p>
+  </header>
+  <main>
+    <section class="panel">
+      <div class="setup-grid">
+        <div><label for="tester">Tester name</label><input id="tester" type="text" placeholder="Enter tester name"></div>
+        <div><label for="testDate">Test date</label><input id="testDate" type="date"></div>
+        <div><label for="environment">Environment / URL</label><input id="environment" type="text" placeholder="http://localhost/clinic-app"></div>
+        <div><label for="build">Build / commit</label><input id="build" type="text" placeholder="Optional"></div>
+        <div><label for="browser">Browser</label><input id="browser" type="text" placeholder="Chrome / Edge / Firefox"></div>
+      </div>
+      <p class="small">Use dedicated test accounts and non-production patient data. For denial tests, change only the stated permission in Super Admin, test it, and restore the original setting afterward.</p>
+    </section>
+
+    <section class="panel">
+      <div class="summary-grid">
+        <div class="metric"><strong id="totalCount">0</strong><span>Total tests</span></div>
+        <div class="metric"><strong id="yesCount">0</strong><span>Working: Yes</span></div>
+        <div class="metric"><strong id="noCount">0</strong><span>Working: No</span></div>
+        <div class="metric"><strong id="pendingCount">0</strong><span>Not tested</span></div>
+      </div>
+      <div class="progress" aria-label="Test completion"><span id="progressBar"></span></div>
+    </section>
+
+    <section class="panel toolbar">
+      <div><label for="roleFilter">Login type</label><select id="roleFilter"><option value="all">All logins</option></select></div>
+      <div><label for="statusFilter">Result</label><select id="statusFilter"><option value="all">All results</option><option value="pending">Not tested</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+      <button class="btn btn-light" id="printButton" type="button">Print</button>
+      <button class="btn btn-danger" id="resetButton" type="button">Reset Results</button>
+    </section>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:70px">Test ID</th><th style="width:110px">Login</th><th style="width:150px">Module</th><th style="width:210px">Test</th><th>Steps</th><th style="width:230px">Expected result</th><th style="width:155px">Working?</th><th style="width:210px">Notes</th></tr></thead>
+        <tbody id="testRows"></tbody>
+      </table>
+      <div class="empty" id="emptyState" hidden>No tests match the selected filters.</div>
+    </div>
+  </main>
+
+  <script>
+  const tests = [
+    ['SA-01','Super Admin','Login','Sign in','1. Open the staff login page.\n2. Enter the Super Admin credentials.\n3. Submit.','Login succeeds and the Admin dashboard opens.','allow'],
+    ['SA-02','Super Admin','Navigation','Protected menus','1. Review the Admin menu.\n2. Locate Configuration, Modules & Permissions, and View Logs.','All three protected menu items are visible.','allow'],
+    ['SA-03','Super Admin','Modules & Permissions','Open permission setup','1. Open Modules & Permissions.\n2. Select each role.','The page loads and the saved module and permission checkboxes change with the selected role.','allow'],
+    ['SA-04','Super Admin','Modules & Permissions','Save role configuration','1. Select a test role.\n2. Change one non-destructive permission.\n3. Click Save Changes.\n4. Reload the page.','A success message appears and the changed checkbox remains saved after reload.','allow'],
+    ['SA-05','Super Admin','Audit','Permission change log','1. Save a role permission change.\n2. Check permission_change_log in the database.','A new row records target role, actor ID, previous JSON, new JSON, and timestamp.','allow'],
+    ['SA-06','Super Admin','Protected Modules','Cannot disable protected modules','1. Open Modules & Permissions.\n2. Inspect System Configuration and Audit Logs.','Protected module controls cannot be changed for normal roles.','allow'],
+    ['SA-07','Super Admin','Configuration','Site settings','1. Open Configuration.\n2. Update the site name with a temporary value.\n3. Restore the original value.','The setting saves and Super Admin retains access regardless of configurable role permissions.','allow'],
+    ['SA-08','Super Admin','Bypass','Super Admin permission bypass','1. Disable an Admin module.\n2. While still signed in as Super Admin, open that module URL.','Super Admin can still access the application module.','allow'],
+
+    ['AD-01','Admin','Login','Sign in','1. Sign out.\n2. Sign in with an active Admin account.','Login succeeds and the Admin dashboard opens.','allow'],
+    ['AD-02','Admin','Dashboard','Dashboard access','1. Open Dashboard from the menu.\n2. Open its URL directly.','Dashboard is visible and loads normally.','allow'],
+    ['AD-03','Admin','User Management','View users','1. Open Manage Users.\n2. Search for a Doctor or Receptionist.','User list and search results are displayed.','allow'],
+    ['AD-04','Admin','User Management','Create and edit user','1. Add a temporary Doctor or Receptionist.\n2. Edit its name or email.','Create and edit succeed when users.create and users.edit are enabled.','allow'],
+    ['AD-05','Admin','User Management','Deactivate separately','1. Deactivate the temporary user.\n2. Confirm login is blocked.\n3. Reactivate it.','Status changes work only when users.status is enabled.','allow'],
+    ['AD-06','Admin','User Management','Delete and restore separately','1. Delete the temporary user.\n2. Open Deleted Users.\n3. Restore the user.','Delete and restore work only with their separate permissions.','allow'],
+    ['AD-07','Admin','Patient Records','Patient lifecycle','1. Open Manage Patients.\n2. Create a test patient.\n3. Edit the patient.\n4. Search for the patient.','View, create, edit and search actions work.','allow'],
+    ['AD-08','Admin','Patient Records','Patient deletion','1. Use a disposable test patient.\n2. Delete the patient.\n3. Confirm the record no longer appears.','Deletion succeeds only when patients.delete is enabled.','allow'],
+    ['AD-09','Admin','Patient Credentials','Password reset','1. Open a patient Password page.\n2. Set or reset the portal password.','Password status is visible and reset succeeds.','allow'],
+    ['AD-10','Admin','Patient Documents','Files','1. Add or edit a test patient and upload a document.\n2. Open View Files.\n3. Download the file.','Upload, list and download succeed according to their separate permissions.','allow'],
+    ['AD-11','Admin','Treatment Episodes','Episode lifecycle','1. Open a patient.\n2. Start treatment.\n3. Create an episode.\n4. Edit episode details.','Episode view, create and edit succeed.','allow'],
+    ['AD-12','Admin','Treatment Sessions','Session lifecycle','1. Open an active episode.\n2. Create a session.\n3. Edit it.\n4. Delete the disposable session.','Create, edit and delete follow separate session permissions.','allow'],
+    ['AD-13','Admin','Payments','Payment lifecycle','1. Open patient Payments.\n2. Record a payment.\n3. Edit it.\n4. Print its receipt.\n5. Delete the disposable payment.','Each payment action succeeds under its own permission.','allow'],
+    ['AD-14','Admin','Financial Reports','View and export','1. Open Financial Reports.\n2. Change the date range.\n3. Download the export.','Report loads and export downloads when both permissions are enabled.','allow'],
+    ['AD-15','Admin','Progress Tracker','View report','1. Open Progress Tracker.\n2. Change the allowed date range.','Charts and weekly tables load.','allow'],
+    ['AD-16','Admin','Medical Reports','Generate and print','1. Open Medical Report.\n2. Generate a patient report.\n3. Use Print.','View, generation and print controls follow separate permissions.','allow'],
+    ['AD-17','Admin','Setup Libraries','Referral sources CRUD','1. Add a temporary referral source.\n2. Edit it.\n3. Delete it.','View, create, edit and delete work independently.','allow'],
+    ['AD-18','Admin','Setup Libraries','Report file types CRUD','1. Add a temporary file type.\n2. Edit it.\n3. Delete it.','View, create, edit and delete work independently.','allow'],
+    ['AD-19','Admin','Setup Libraries','Exercise library actions','1. Add a temporary exercise.\n2. Edit it.\n3. Change its status.\n4. Delete it.','Create, edit, status and delete each follow their own permission.','allow'],
+    ['AD-20','Admin','Setup Libraries','Machine library actions','1. Add a temporary machine.\n2. Edit it.\n3. Delete it.','Create, edit and delete each follow their own permission.','allow'],
+    ['AD-21','Admin','Setup Libraries','Exercise groups actions','1. Add a group.\n2. Edit it.\n3. Change status.\n4. Delete it.','Create, edit, status and delete each follow their own permission.','allow'],
+    ['AD-22','Admin','Assessment Setup','Assessment actions','1. Add and edit a section.\n2. Manage questions.\n3. Toggle status.\n4. Delete disposable data.','Each action follows its configured assessment permission.','allow'],
+    ['AD-23','Admin','Protected Modules','Protected menu denied','1. Review the Admin menu.\n2. Try the Configuration, Modules & Permissions, and View Logs URLs directly.','Menus are hidden and direct URLs do not allow Admin access.','deny'],
+    ['AD-24','Admin','Disabled Module','Menu and URL blocked','1. As Super Admin, disable Referral Sources for Admin.\n2. Sign in as Admin.\n3. Check the menu.\n4. Open manage_referrals.php directly.','Menu is hidden and the direct URL returns access denied. Restore the module afterward.','deny'],
+    ['AD-25','Admin','Destructive Permission','Delete blocked independently','1. Enable Referral Sources but disable referrals.delete.\n2. Sign in as Admin.\n3. Submit a delete request.','Viewing, creating and editing still work, but deletion returns access denied. Restore permission afterward.','deny'],
+
+    ['DR-01','Doctor','Login','Sign in','1. Sign out.\n2. Sign in with an active Doctor account.','Login succeeds and Doctor dashboard opens.','allow'],
+    ['DR-02','Doctor','Dashboard','Doctor dashboard','1. Open Dashboard.\n2. Review assigned treatment information.','Doctor dashboard loads.','allow'],
+    ['DR-03','Doctor','Patient Records','View, create and edit patient','1. Open Manage Patients.\n2. Create a test patient.\n3. Edit it.\n4. Search for it.','Allowed patient actions succeed.','allow'],
+    ['DR-04','Doctor','Patient Documents','List, upload and download','1. Upload a document through patient or session entry.\n2. Open files.\n3. Download it.','Configured document actions succeed.','allow'],
+    ['DR-05','Doctor','Treatment Episodes','Create and update episode','1. Select a patient.\n2. Create an episode.\n3. Edit episode details if the permission is enabled.','Episode actions match the Doctor grants.','allow'],
+    ['DR-06','Doctor','Treatment Sessions','Session actions','1. Create a session.\n2. Edit it.\n3. Copy a previous session.\n4. Attach a file.','Create, edit, copy and file actions work only when separately granted.','allow'],
+    ['DR-07','Doctor','Treatment Sessions','Delete session','1. Use a disposable session.\n2. Delete it.','Deletion follows sessions.delete and is no longer controlled by a hard-coded role rule.','allow'],
+    ['DR-08','Doctor','Patient Assessment','Assessment entry','1. Open a patient assessment.\n2. Save answers.\n3. Use voice entry where available.','View and save work; voice entry follows its permission.','allow'],
+    ['DR-09','Doctor','Libraries','Read libraries','1. Open Exercises Library.\n2. Open Machine Library.\n3. Open Exercise Groups.','Granted libraries appear and load.','allow'],
+    ['DR-10','Doctor','Assessment Setup','View setup','1. Open Assessment Setup.\n2. Open questions for a section.','Setup and question pages load according to granted permissions.','allow'],
+    ['DR-11','Doctor','Admin Modules','Admin-only modules denied','1. Try Manage Users, Financial Reports and Configuration URLs directly.','Access is denied and these items are not shown in the Doctor menu.','deny'],
+    ['DR-12','Doctor','Disabled Module','Menu and URL blocked','1. Disable Exercise Library for Doctor.\n2. Sign in as Doctor.\n3. Check menu and open exercises_list.php directly.','Menu is hidden and direct URL is denied. Restore afterward.','deny'],
+    ['DR-13','Doctor','Destructive Permission','Delete denied separately','1. Keep Treatment Sessions enabled but disable sessions.delete.\n2. Try deleting a session.\n3. Confirm edit still works.','Delete is denied while permitted non-destructive session actions continue.','deny'],
+
+    ['RE-01','Receptionist','Login','Sign in','1. Sign out.\n2. Sign in with an active Receptionist account.','Login succeeds and Reception dashboard opens.','allow'],
+    ['RE-02','Receptionist','Dashboard','Reception dashboard','1. Open Dashboard.','Reception dashboard loads.','allow'],
+    ['RE-03','Receptionist','Patient Records','Patient workflow','1. Open Manage Patients.\n2. Create a test patient.\n3. Edit and search for it.','Configured patient actions succeed.','allow'],
+    ['RE-04','Receptionist','Patient Documents','Patient files','1. Upload a patient document.\n2. Open the patient file list.\n3. Download it.','Upload, list and download follow separate grants.','allow'],
+    ['RE-05','Receptionist','Patient Assessment','View assessment','1. Open a patient assessment.','Assessment can be viewed.','allow'],
+    ['RE-06','Receptionist','Patient Assessment','Save denied by default','1. Try submitting an assessment change.','Save is denied unless patient_assessment.save is explicitly granted.','deny'],
+    ['RE-07','Receptionist','Payments','Payment actions','1. Open patient Payments.\n2. Record and edit a payment.\n3. Edit a charge.\n4. Print a receipt.\n5. Delete disposable payment data.','Each configured payment action works independently.','allow'],
+    ['RE-08','Receptionist','Referral Sources','View referral data','1. Open patient intake and verify saved referral options are available.','Referral information required for intake can be viewed.','allow'],
+    ['RE-09','Receptionist','Admin and Clinical Modules','Unassigned modules denied','1. Try Manage Users, Exercise Library, Treatment Sessions, Financial Reports and Configuration URLs.','Menus are absent and direct URL access is denied.','deny'],
+    ['RE-10','Receptionist','Disabled Module','Payments module blocked','1. Disable Payments for Receptionist.\n2. Sign in as Receptionist.\n3. Open a patient and try the Payments URL directly.','Payment links/module access are unavailable and direct access is denied. Restore afterward.','deny'],
+    ['RE-11','Receptionist','Destructive Permission','Payment delete denied separately','1. Enable Payments but disable payments.delete_payment.\n2. Confirm viewing still works.\n3. Try deleting a payment.','View remains available while delete is denied. Restore afterward.','deny'],
+
+    ['PA-01','Patient','Login','Sign in','1. Open Patient Login.\n2. Enter a valid patient contact number and password.','Login succeeds and the patient dashboard opens.','allow'],
+    ['PA-02','Patient','Dashboard','Own dashboard','1. Open Dashboard.\n2. Confirm the displayed information belongs to the signed-in patient.','Only the current patient’s information is shown.','allow'],
+    ['PA-03','Patient','History','Own treatment history','1. Open My History.\n2. Open an episode.','Only the signed-in patient’s treatment history is visible.','allow'],
+    ['PA-04','Patient','Payments','Own payments','1. Open My Payments.\n2. Review transactions and balances.','Only the signed-in patient’s payment information is visible.','allow'],
+    ['PA-05','Patient','Password','Change password','1. Open Change Password.\n2. Change it to a temporary password.\n3. Sign out and sign in with the new password.','Password changes and the new password works.','allow'],
+    ['PA-06','Patient','Staff Modules','Staff access denied','1. Try Admin, Doctor, Receptionist and shared payment-management URLs directly.','Staff menus are absent and direct URL access is denied.','deny'],
+    ['PA-07','Patient','Disabled Module','Self-service blocked','1. Disable Patient Self-Service for Patient.\n2. Sign in as Patient.\n3. Try dashboard, history and payments URLs.','Self-service pages are denied. Restore the module afterward.','deny'],
+    ['PA-08','Patient','Individual Permission','Payments denied separately','1. Enable Patient Self-Service but disable patient_portal.payments.\n2. Sign in as Patient.\n3. Check menu and open payments.php directly.','My Payments is hidden and direct access is denied; dashboard/history remain available.','deny'],
+
+    ['SYS-01','Cross-role','Module Enforcement','Disabled module blocks all actions','1. Choose a test role and module.\n2. Disable the module.\n3. Submit a known action URL manually.','The server returns access denied even if the action permission row remains granted.','deny'],
+    ['SYS-02','Cross-role','Direct URL','Hidden menu is not the only control','1. Remove a view permission.\n2. Paste the exact page URL into the browser.','The page returns access denied rather than loading hidden content.','deny'],
+    ['SYS-03','Cross-role','Audit','Repeated permission changes','1. Change a role permission twice.\n2. Inspect permission_change_log.','Each save creates a timestamped before/after audit entry with actor and target role.','allow'],
+    ['SYS-04','Cross-role','Session Refresh','Permission change takes effect','1. Keep a role signed in.\n2. Change its permission as Super Admin.\n3. Refresh or make a new request in the role session.','The new permission is applied on the next request.','allow']
+  ];
+
+  const storageKey = 'clinic-role-permission-uat-v1';
+  const metaIds = ['tester','testDate','environment','build','browser'];
+  let saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  saved.results = saved.results || {};
+
+  function save() {
+    saved.meta = Object.fromEntries(metaIds.map(id => [id, document.getElementById(id).value]));
+    localStorage.setItem(storageKey, JSON.stringify(saved));
+    updateSummary();
+  }
+
+  function render() {
+    const role = document.getElementById('roleFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    const body = document.getElementById('testRows');
+    body.innerHTML = '';
+    let lastRole = '';
+    let visible = 0;
+    tests.forEach(t => {
+      const result = saved.results[t[0]]?.result || 'pending';
+      if (role !== 'all' && t[1] !== role) return;
+      if (status !== 'all' && result !== status) return;
+      if (lastRole !== t[1]) {
+        const group = document.createElement('tr');
+        group.className = 'role-row';
+        group.innerHTML = `<td colspan="8">${escapeHtml(t[1])} Login Tests</td>`;
+        body.appendChild(group);
+        lastRole = t[1];
+      }
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="test-id">${t[0]}</td><td>${escapeHtml(t[1])}</td><td class="module">${escapeHtml(t[2])}</td><td>${escapeHtml(t[3])}<br><span class="tag ${t[6] === 'deny' ? 'tag-denied' : 'tag-allowed'}">${t[6] === 'deny' ? 'DENIAL TEST' : 'ALLOWED'}</span></td><td>${escapeHtml(t[4]).replaceAll('\n','<br>')}</td><td><div class="expected ${t[6] === 'deny' ? 'denied' : ''}">${escapeHtml(t[5])}</div></td><td class="result"><label><input type="radio" name="result-${t[0]}" value="yes" ${result === 'yes' ? 'checked' : ''}> Yes</label><label><input type="radio" name="result-${t[0]}" value="no" ${result === 'no' ? 'checked' : ''}> No</label><label><input type="radio" name="result-${t[0]}" value="pending" ${result === 'pending' ? 'checked' : ''}> Clear</label></td><td class="notes"><textarea aria-label="Notes for ${t[0]}" placeholder="Issue details / ticket ID">${escapeHtml(saved.results[t[0]]?.notes || '')}</textarea></td>`;
+      tr.querySelectorAll('input[type=radio]').forEach(input => input.addEventListener('change', () => { saved.results[t[0]] = saved.results[t[0]] || {}; saved.results[t[0]].result = input.value; save(); render(); }));
+      tr.querySelector('textarea').addEventListener('input', e => { saved.results[t[0]] = saved.results[t[0]] || {}; saved.results[t[0]].notes = e.target.value; save(); });
+      body.appendChild(tr);
+      visible++;
+    });
+    document.getElementById('emptyState').hidden = visible !== 0;
+    updateSummary();
+  }
+
+  function updateSummary() {
+    let yes = 0, no = 0;
+    tests.forEach(t => { const r = saved.results[t[0]]?.result; if (r === 'yes') yes++; if (r === 'no') no++; });
+    document.getElementById('totalCount').textContent = tests.length;
+    document.getElementById('yesCount').textContent = yes;
+    document.getElementById('noCount').textContent = no;
+    document.getElementById('pendingCount').textContent = tests.length - yes - no;
+    document.getElementById('progressBar').style.width = `${Math.round(((yes + no) / tests.length) * 100)}%`;
+  }
+
+  function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+
+  const roles = [...new Set(tests.map(t => t[1]))];
+  roles.forEach(role => document.getElementById('roleFilter').add(new Option(role, role)));
+  metaIds.forEach(id => { document.getElementById(id).value = saved.meta?.[id] || ''; document.getElementById(id).addEventListener('input', save); });
+  if (!document.getElementById('testDate').value) document.getElementById('testDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('roleFilter').addEventListener('change', render);
+  document.getElementById('statusFilter').addEventListener('change', render);
+  document.getElementById('printButton').addEventListener('click', () => window.print());
+  document.getElementById('resetButton').addEventListener('click', () => { if (confirm('Clear all Yes/No results and notes?')) { saved.results = {}; save(); render(); } });
+  save();
+  render();
+  </script>
+</body>
+</html>

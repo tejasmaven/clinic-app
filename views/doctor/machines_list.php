@@ -3,6 +3,7 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Doctor');
+requirePermission('machines.view');
 
 $machines = $pdo->query("SELECT name, default_duration_minutes FROM machines ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 

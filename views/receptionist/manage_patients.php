@@ -1,6 +1,7 @@
 <?php
 require_once '../../includes/auth.php';
 requireRole('Receptionist');
+requirePermission('patients.view');
 require_once '../../includes/db.php';
 
 $search = $_GET['search'] ?? '';

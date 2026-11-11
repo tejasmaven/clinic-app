@@ -3,6 +3,10 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('patient_password.view_status');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requirePermission('patient_password.reset');
+}
 
 require_once '../../controllers/PatientController.php';
 $controller = new PatientController($pdo);

@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $auth = new AuthController($pdo);
     $error = $auth->AdminLogin($_POST['email'], $_POST['password'], ['Admin', 'Super Admin']);
     if (!$error) {
-        header("Location: ../admin/dashboard/");
+        header('Location: ' . getRoleLandingUrl($_SESSION['role'] ?? ''));
         exit();
     }
 }

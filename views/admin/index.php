@@ -3,6 +3,7 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('dashboard.admin.view');
 
 function getDateRangeStart(string $date): string {
     return $date . ' 00:00:00';

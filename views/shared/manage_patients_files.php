@@ -2,6 +2,10 @@
 require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
+requirePermission('patient_files.list');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requirePermission('patient_files.upload');
+}
 if (!in_array($_SESSION['role'] ?? '', ['Admin','Doctor','Receptionist'])) {
     header('Location: ../login.php');
     exit;

@@ -3,6 +3,13 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('machines.view');
+requireActionPermission([
+    'add_machine' => 'machines.create',
+    'edit_machine' => 'machines.edit',
+    'toggle_machine' => 'machines.status',
+    'delete_machine' => 'machines.delete',
+]);
 
 require_once '../../controllers/AdminController.php';
 $admin = new AdminController($pdo);

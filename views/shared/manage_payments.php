@@ -2,6 +2,19 @@
 require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
+requirePermission('payments.view');
+if (isset($_GET['delete'])) {
+    requirePermission('payments.delete_payment');
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['bulk_fee_edit']) && $_POST['bulk_fee_edit'] === '1') {
+        requirePermission('payments.edit_charge');
+    } elseif (!empty($_POST['payment_id'])) {
+        requirePermission('payments.edit_payment');
+    } else {
+        requirePermission('payments.receive');
+    }
+}
 if (!in_array($_SESSION['role'] ?? '', ['Admin', 'Super Admin', 'Receptionist'], true)) {
     header('Location: ../login.php');
     exit;

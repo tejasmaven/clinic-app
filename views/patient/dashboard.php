@@ -4,6 +4,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/db.php';
 require_once '../../controllers/PatientController.php';
 requireRole('Patient', 'login.php');
+requirePermission('patient_portal.dashboard');
 
 $patientId = (int) ($_SESSION['patient_id'] ?? $_SESSION['user_id'] ?? 0);
 $controller = new PatientController($pdo);

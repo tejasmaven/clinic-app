@@ -8,7 +8,7 @@ include 'includes/header.php';
     <h1>Welcome to <?= htmlspecialchars(get_site_name()) ?></h1>
     <div class="mt-4">
         <a href="views/patient/login.php" class="btn btn-primary btn-lg mx-2">Patient Login</a>
-        <a href="views/login.php" class="btn btn-secondary btn-lg mx-2">Doctor Login</a>
+        <a href="views/login.php" class="btn btn-secondary btn-lg mx-2">Staff Login</a>
     </div>
 </div>
 

@@ -19,6 +19,20 @@ $roleDashboards = [
 ];
 
 $dashboardUrl = $roleDashboards[$currentRole] ?? BASE_URL . '/index.php';
+$dashboardPermissions = [
+    'Admin' => 'dashboard.admin.view',
+    'Super Admin' => 'dashboard.admin.view',
+    'Doctor' => 'dashboard.doctor.view',
+    'Receptionist' => 'dashboard.reception.view',
+    'Patient' => 'patient_portal.dashboard',
+];
+$canViewDashboard = $isLoggedIn
+    && function_exists('hasPermission')
+    && isset($dashboardPermissions[$currentRole])
+    && hasPermission($dashboardPermissions[$currentRole]);
+$homeUrl = $isLoggedIn && function_exists('getRoleLandingUrl')
+    ? getRoleLandingUrl($currentRole)
+    : BASE_URL . '/index.php';
 $siteName = get_site_name();
 ?>
 <!DOCTYPE html>
@@ -34,7 +48,7 @@ $siteName = get_site_name();
 <body class="bg-body-tertiary">
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
     <div class="container-fluid px-3 px-lg-4">
-        <a class="navbar-brand fw-semibold" href="<?= BASE_URL ?>/index.php"><?= htmlspecialchars($siteName) ?></a>
+        <a class="navbar-brand fw-semibold" href="<?= htmlspecialchars($homeUrl) ?>"><?= htmlspecialchars($siteName) ?></a>
         <?php if ($isLoggedIn): ?>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -43,9 +57,11 @@ $siteName = get_site_name();
         <div class="collapse navbar-collapse justify-content-end" id="mainNavbar">
             <?php if ($isLoggedIn): ?>
             <ul class="navbar-nav align-items-lg-center gap-lg-3">
+                <?php if ($canViewDashboard): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?= htmlspecialchars($dashboardUrl) ?>">Dashboard</a>
                 </li>
+                <?php endif; ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?= BASE_URL ?>/views/shared/logout.php">Logout</a>
                 </li>

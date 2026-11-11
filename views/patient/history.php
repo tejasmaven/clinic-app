@@ -3,6 +3,7 @@ require_once '../../includes/session.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/db.php';
 requireRole('Patient', 'login.php');
+requirePermission('patient_portal.history');
 
 $patientId = (int) ($_SESSION['patient_id'] ?? $_SESSION['user_id'] ?? 0);
 

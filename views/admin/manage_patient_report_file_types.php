@@ -3,6 +3,12 @@ require_once '../../includes/db.php';
 require_once '../../includes/auth.php';
 requireLogin();
 requireRole('Admin');
+requirePermission('report_file_types.view');
+requireActionPermission([
+    'add_patient_report_file_type' => 'report_file_types.create',
+    'edit_patient_report_file_type' => 'report_file_types.edit',
+    'delete_patient_report_file_type' => 'report_file_types.delete',
+]);
 
 require_once '../../controllers/AdminController.php';
 $admin = new AdminController($pdo);
